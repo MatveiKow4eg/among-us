@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>КОВЧЕГ — Админ</title>
+  <style>
+    body {
+      background: #0d0d1a;
+      color: white;
+      font-family: sans-serif;
+      padding: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      padding: 10px;
+      border: 1px solid #444;
+      text-align: center;
+    }
+
+    button {
+      padding: 8px 14px;
+      margin: 5px;
+      cursor: pointer;
+    }
+
+    h2 {
+      color: #fff;
+    }
+
+    #startGameBtn {
+      background-color: #28a745;
+      color: white;
+      font-weight: bold;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Панель администратора</h2>
+  <button id="startGameBtn">🚀 Начать игру</button>
+  <div id="playersList">Загрузка игроков...</div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

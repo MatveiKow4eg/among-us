@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>КОВЧЕГ — Игрок</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: black;
+      color: white;
+      overflow: hidden;
+    }
+
+    .screen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      z-index: 10;
+    }
+
+    .screen.active {
+      display: flex;
+    }
+
+    #roleScreen, #countdownScreen {
+      font-size: 60px;
+      z-index: 1000;
+      background: black;
+    }
+
+    .hud-card {
+      background: #111;
+      margin: 10px;
+      padding: 15px;
+      border-radius: 8px;
+    }
+
+    .player-avatar {
+      width: 80px;
+      height: 80px;
+    }
+
+    .dead {
+      color: red;
+    }
+
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Экран регистрации -->
+  <div class="screen" id="registerScreen" style="display: flex;">
+    <h2>Введи свой номер игрока (1–60)</h2>
+    <input type="number" id="playerInput" min="1" max="60" />
+    <button id="registerBtn">Войти</button>
+  </div>
+
+  <!-- Ожидание -->
+  <div class="screen" id="waitingScreen">
+    <h2>Ожидание начала игры...</h2>
+    <p>Ждём старта от администратора.</p>
+  </div>
+
+  <!-- HUD -->
+  <div id="hudScreen" style="display:none; padding: 20px;">
+    <div class="hud-card player-info">
+      <img id="playerAvatar" src="" alt="Аватар" class="player-avatar" />
+      <div>
+        <div>Игрок №<span id="playerNumber"></span></div>
+        <div id="playerStatus">Загрузка...</div>
+        <div>Следующее голосование: <span id="cooldownTimer">--:--</span></div>
+      </div>
+    </div>
+
+    <div class="hud-card tasks-section" id="taskSection">
+      <h3>ЗАДАНИЯ</h3>
+      <ul>
+        <li>Fix Wiring</li>
+        <li>Calibrate Distributor</li>
+      </ul>
+    </div>
+
+    <div class="hud-card vote-section">
+      <h3>ГОЛОСОВАНИЕ</h3>
+      <button id="voteBtn">Голосовать</button>
+    </div>
+
+    <div id="meetingSection" class="hud-card" style="display:none;">
+      <h3>🛑 СОБРАНИЕ!</h3>
+      <p id="meetingTarget"></p>
+      <button id="voteKickBtn">Исключить</button>
+      <button id="voteSkipBtn">Пропустить</button>
+    </div>
+
+    <div style="text-align:center;">
+      <button id="roleButton">👁 Посмотреть свою роль</button>
+    </div>
+  </div>
+
+  <!-- Экран роли -->
+  <div class="screen" id="roleScreen">
+    <div id="roleText">Твоя роль...</div>
+  </div>
+
+  <!-- Отсчёт -->
+  <div class="screen" id="countdownScreen">
+    <div id="countdownNumber">3</div>
+  </div>
+
+  <!-- Firebase и скрипт -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

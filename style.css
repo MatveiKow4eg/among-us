@@ -1,0 +1,153 @@
+
+/* Базовые стили */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Orbitron', sans-serif;
+  background-color: #0d0d1a;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+}
+
+/* Общий контейнер */
+#hudScreen {
+  width: 100%;
+  max-width: 420px;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+/* Карточки интерфейса */
+.hud-card {
+  background-color: #1a1a2e;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+/* Аватар игрока */
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.player-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: contain;
+}
+
+.player-label {
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+.player-status {
+  font-weight: bold;
+  color: limegreen;
+}
+
+.player-status.dead {
+  color: crimson;
+}
+
+.next-vote {
+  font-size: 0.9em;
+  color: #ccc;
+}
+
+/* Разделы */
+.section-title {
+  font-weight: bold;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+ul#taskList {
+  padding-left: 20px;
+  margin: 0;
+  text-align: left;
+}
+
+.vote-section button,
+#meetingSection button {
+  width: 100%;
+  padding: 12px;
+  font-size: 1.1em;
+  border-radius: 10px;
+  background-color: #2962ff;
+  color: white;
+  border: none;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.vote-section button:disabled {
+  background-color: #555;
+}
+
+#meetingSection button:nth-child(2) {
+  background-color: crimson;
+}
+
+/* Экран регистрации */
+#registerScreen {
+  text-align: center;
+  margin-top: 40px;
+  padding: 20px;
+}
+
+#registerScreen input {
+  padding: 12px;
+  font-size: 18px;
+  border-radius: 8px;
+  border: none;
+  margin-bottom: 10px;
+  width: 80%;
+  max-width: 300px;
+}
+
+#registerScreen button {
+  padding: 12px 20px;
+  font-size: 18px;
+  background-color: #2196f3;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Кулдаун */
+#cooldownTimer {
+  font-size: 14px;
+  color: #ffeb3b;
+  margin-top: 5px;
+}
+
+.role-popup {
+  position: fixed;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  background: rgba(0,0,0,0.9);
+  padding: 20px 40px;
+  border-radius: 10px;
+  color: white;
+  z-index: 1000;
+  animation: fadeOut 2s ease-in-out forwards;
+}
+
+@keyframes fadeOut {
+  0% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
