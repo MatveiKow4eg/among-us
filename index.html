@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>КОВЧЕГ — Вход в игру</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      background: linear-gradient(to bottom, #000000, #1a1a2e);
+      color: white;
+      font-family: 'Orbitron', sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+    }
+
+    input[type="number"] {
+      font-size: 1.2rem;
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+      width: 200px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    button {
+      font-size: 1.2rem;
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: none;
+      background-color: #2196f3;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #0b7dda;
+    }
+  </style>
+</head>
+<body>
+  <h1>Добро пожаловать в игру "Ковчег"</h1>
+  <p>Введите свой номер участника (1–60):</p>
+  <input type="number" id="playerNumber" min="1" max="60" required>
+  <br>
+  <button onclick="enterGame()">Войти</button>
+
+  <script>
+    function enterGame() {
+      const number = document.getElementById('playerNumber').value;
+      if (number >= 1 && number <= 60) {
+        localStorage.setItem('playerNumber', number);
+        window.location.href = 'hud.html';
+      } else {
+        alert('Введите номер от 1 до 60.');
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>КОВЧЕГ — Админ</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      background-color: #101020;
+      color: white;
+      font-family: 'Orbitron', sans-serif;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .player-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #1e1e2e;
+      padding: 10px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+
+    button {
+      margin-left: 5px;
+      padding: 5px 10px;
+      font-size: 0.9rem;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      background-color: #333;
+      color: white;
+    }
+
+    button:hover {
+      background-color: #555;
+    }
+  </style>
+</head>
+<body>
+  <h1>Панель администратора</h1>
+  <div id="playerList"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <script src="firebase.js"></script>
+  <script>
+    const db = firebase.database();
+    const playerList = document.getElementById('playerList');
+
+    function renderPlayer(num, data) {
+      const row = document.createElement('div');
+      row.className = 'player-row';
+      row.innerHTML = `
+        <div>Игрок ${num} — <b>${data.status}</b></div>
+        <div>
+          <button onclick="updateStatus(${num}, 'alive')">Оживить</button>
+          <button onclick="updateStatus(${num}, 'dead')">Убить</button>
+          <button onclick="clearVotes(${num})">Очистить голоса</button>
+        </div>
+      `;
+      return row;
+    }
+
+    function updateStatus(num, status) {
+      db.ref('players/' + num).update({ status });
+    }
+
+    function clearVotes(num) {
+      db.ref('players/' + num + '/votesAgainst').set([]);
+    }
+
+    function loadPlayers() {
+      db.ref('players').on('value', (snap) => {
+        const data = snap.val();
+        playerList.innerHTML = '';
+        for (let num in data) {
+          playerList.appendChild(renderPlayer(num, data[num]));
+        }
+      });
+    }
+
+    loadPlayers();
+  </script>
+<script src="script.js"></script>
+
+</body>
+</html>
