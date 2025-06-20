@@ -16,13 +16,29 @@ const db = firebase.database();
 
 // ==================== Централизованная обработка удаления игрока ====================
 function handlePlayerDeletion() {
+  const countdownNumber = document.getElementById("countdownNumber");
+if (countdownNumber) {
+  countdownNumber.innerText = "";
+}
+  
   localStorage.removeItem("playerNumber");
 
-  document.querySelectorAll(".screen, #hudScreen, #waitingScreen, #roleScreen, #countdownScreen").forEach(el => {
+  // Скрыть все экраны
+  document.querySelectorAll(".screen, #hudScreen").forEach(el => {
     el.style.display = "none";
     el.classList.remove("active");
   });
 
+  // Сброс overlay-экранов безопасно
+  ["countdownScreen", "roleScreen"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.classList.remove("active");
+      el.style.display = "none";
+    }
+  });
+
+  // Показать регистрацию
   const registerScreen = document.getElementById("registerScreen");
   if (registerScreen) {
     registerScreen.style.display = "flex";
@@ -32,10 +48,12 @@ function handlePlayerDeletion() {
     if (input) input.focus();
   }
 
+  // Уведомление
   setTimeout(() => {
     alert("Вы были удалены админом.");
   }, 100);
 }
+
 
 // ==================== DOMContentLoaded ====================
 document.addEventListener("DOMContentLoaded", () => {
@@ -65,6 +83,11 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function initHUD(number) {
+  const playerRef = db.ref("players/" + number);
+  const playerNumber = number;
+  localStorage.setItem("playerNumber", number);
+
+  // 📦 DOM элементы
   const registerScreen = document.getElementById("registerScreen");
   const waitingScreen = document.getElementById("waitingScreen");
   const hudScreen = document.getElementById("hudScreen");
@@ -72,77 +95,89 @@ function initHUD(number) {
   const countdownScreen = document.getElementById("countdownScreen");
   const countdownNumber = document.getElementById("countdownNumber");
   const roleScreen = document.getElementById("roleScreen");
-  const roleText = document.getElementById("roleText");
-  
 
-  const playerRef = db.ref("players/" + number);
-  const playerNumber = number;
-  localStorage.setItem("playerNumber", number);
-
-  // Скрываем все экраны кроме ожидания
+  // 🔁 Очистка всех экранов и слоёв
   document.querySelectorAll(".screen, #hudScreen").forEach(el => {
     el.style.display = "none";
     el.classList.remove("active");
   });
 
+  // 🔒 Убираем overlay-слои вручную
+  if (countdownScreen) {
+    countdownScreen.classList.remove("active");
+    countdownScreen.style.display = "none";
+  }
+  if (roleScreen) {
+    roleScreen.classList.remove("active");
+    roleScreen.style.display = "none";
+  }
+  if (countdownNumber) {
+    countdownNumber.innerText = "";
+  }
+
+  // 🧾 Переход в ожидание
   registerScreen.style.display = "none";
   waitingScreen.style.display = "flex";
 
+  // 🎨 Установка аватара
   const avatarColors = ['red', 'blue', 'orange', 'black', 'white', 'pink'];
   const avatarColor = avatarColors[(number - 1) % avatarColors.length];
   document.getElementById("playerAvatar").src = `avatars/${avatarColor}.webp`;
 
-  // Создать игрока, если его нет, или добавить joinedAt, если отсутствует
+  // 👤 Создание игрока (если нужно)
   db.ref("players/" + number).once("value").then((snap) => {
     const data = snap.val();
     if (!snap.exists()) {
       return playerRef.set({
         status: "alive",
         votedAt: 0,
-        role: "crew", 
+        role: "crew",
         joinedAt: Date.now()
       });
     } else if (!data.joinedAt) {
       return playerRef.update({ joinedAt: Date.now() });
     }
   }).then(() => {
+
+    // 🗑 Удаление игрока
     playerRef.on("value", (snapshot) => {
       if (!snapshot.exists()) {
         handlePlayerDeletion();
       }
     });
 
+    // 🔁 Сброс состояния
     db.ref("game/state").on("value", (snap) => {
       const state = snap.val();
       if (state === "waiting") {
         handleGameResetToWaiting();
       }
     });
-    
-    // Следим за стартом игры
+
+    // 🚀 Старт игры
     db.ref("game").on("value", (snap) => {
       const game = snap.val();
       if (game?.state === "started") {
-        db.ref("game").off(); // отписываемся от слушателя
+        db.ref("game").off(); // Отписка
 
-        // Получаем joinedAt игрока
         playerRef.once("value").then((snap) => {
           const playerData = snap.val();
           if (!playerData?.joinedAt || !game?.startedAt) return;
 
           if (playerData.joinedAt > game.startedAt) {
-            // Игрок зашёл после начала — без отсчёта и роли
+            // Зашёл после старта — сразу HUD
             waitingScreen.style.display = "none";
             hudScreen.style.display = "block";
             roleButton.style.display = "block";
             setupPlayerUI(playerRef, playerNumber);
           } else {
-            // Игрок ждал — запускаем отсчёт и роль
+            // Зашёл до старта — нормальный запуск
             startGameSequence(game, playerRef, playerNumber);
           }
         });
       }
     });
+
   });
 }
 
@@ -180,6 +215,7 @@ function startGameSequence(game, playerRef, playerNumber) {
 
     // Заход ДО старта — нормальный запуск
     countdownNumber.innerText = "Скоро узнаешь свою роль...";
+    countdownScreen.style.display = "flex";
     countdownScreen.classList.add("active");
 
     setTimeout(() => {
@@ -189,7 +225,10 @@ function startGameSequence(game, playerRef, playerNumber) {
         count--;
         if (count < 0) {
           clearInterval(interval);
-          countdownScreen.classList.remove("active");
+countdownScreen.classList.remove("active");
+countdownScreen.style.display = "none";
+countdownNumber.innerText = "";
+
 
           roleText.innerText = role === "imposter" ? "🟥 Ты ИМПОСТЕР!" : "🟦 Ты мирный.";
           roleScreen.classList.add("active");
