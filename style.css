@@ -6,23 +6,24 @@ body {
   background-image: url('kovcheg-bg.png');
   background-repeat: no-repeat;
   background-position: center top;
-  background-size: 100% auto;
+  background-size: cover;
   background-attachment: scroll;
   color: white;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   min-height: 100vh;
   overflow: hidden;
 }
 
 #countdownScreen {
-  display: flex;
+  display: none;
   justify-content: center;
   align-items: center;
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: transparent;
   z-index: 1000;
   padding: 0;
   margin: 0;
@@ -39,10 +40,12 @@ body {
   border-radius: 12px;
   max-width: 90%;
   line-height: 1.4;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: auto;
+  display: block;
+  margin: 0 auto;
+  background: rgba(0, 0, 0, 0.6);
+  box-sizing: border-box;
+  text-shadow: 0 0 6px rgba(255,255,255,0.3);
+  letter-spacing: 1px;
 }
 
 
@@ -227,7 +230,7 @@ button:hover {
 }
 
 .screen.active {
-  display: flex !important;
+  display: flex;
 }
 
 @media screen and (max-width: 480px) {
