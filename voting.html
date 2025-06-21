@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Голосование — Админ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: sans-serif; background: #0d0d1a; color: white; padding: 20px; }
+    h1 { margin-bottom: 20px; }
+    ul { list-style: none; padding: 0; }
+    li { margin-bottom: 10px; background: #222; padding: 10px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h1>🗳 Текущие голоса</h1>
+  <ul id="votesList">Загрузка...</ul>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <script src="firebase-init.js"></script>
+  <script src="voting.js"></script>
+</body>
+</html>
