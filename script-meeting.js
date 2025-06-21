@@ -31,19 +31,17 @@ db.ref("meetings").on("value", async (snap) => {
       const meeting = mSnap.val();
       if (!meeting) return;
 
-      const votes = meeting.votes || {};
-      let kick = 0;
-      Object.values(votes).forEach(v => { if (v === "kick") kick++; });
+const votes = meeting.votes || {};
+let kick = 0, skip = 0;
+Object.values(votes).forEach(v => {
+  if (v === "kick") kick++;
+  else if (v === "skip") skip++;
+});
 
-      // Считаем живых
-      const playersSnap = await db.ref("players").once("value");
-      const players = playersSnap.val() || {};
-      const aliveCount = Object.values(players).filter(p => p.status === "alive").length;
-
-      // Кикаем если надо
-      if (kick > aliveCount / 2) {
-        await db.ref(`players/${meeting.target}/status`).set("dead");
-      }
+const totalVotes = kick + skip;
+if (totalVotes > 0 && (kick / totalVotes) > 0.5) {
+  await db.ref(`players/${meeting.target}/status`).set("dead");
+}
 
       // Ставим глобальный кулдаун
       await db.ref("game/globalCooldownUntil").set(Date.now() + 60000);
