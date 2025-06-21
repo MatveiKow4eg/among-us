@@ -32,29 +32,30 @@ db.ref("meetings").on("value", async (snap) => {
 
   console.log("⏳ Собрание началось, таймер на 20 секунд...");
 
-  votingMeetingTimer = setTimeout(async () => {
-    const mSnap = await db.ref("meetings").once("value");
-    const meeting = mSnap.val();
-    if (!meeting) return;
+votingMeetingTimer = setTimeout(async () => {
+  const mSnap = await db.ref("meetings").once("value");
+  const meeting = mSnap.val();
+  if (!meeting) return;
 
-    const votes = meeting.votes || {};
-    let kick = 0;
-    Object.values(votes).forEach(v => { if (v === "kick") kick++; });
+const votes = meeting.votes || {};
+let kick = 0, skip = 0;
+Object.values(votes).forEach(v => {
+  if (v === "kick") kick++;
+  else if (v === "skip") skip++;
+});
 
-    const playersSnap = await db.ref("players").once("value");
-    const players = playersSnap.val() || {};
-    const aliveCount = Object.values(players).filter(p => p.status === "alive").length;
+const totalVotes = kick + skip;
+if (totalVotes > 0 && (kick / totalVotes) > 0.5) {
+  await db.ref(`players/${meeting.target}/status`).set("dead");
+}
 
-    if (kick > aliveCount / 2) {
-      await db.ref(`players/${meeting.target}/status`).set("dead");
-    }
+  await db.ref("game/globalCooldownUntil").set(Date.now() + 60000);
+  await db.ref("suspicion").remove();
+  await db.ref("meetings").set(null);
 
-    await db.ref("game/globalCooldownUntil").set(Date.now() + 60000);
-    await db.ref("suspicion").remove();
-    await db.ref("meetings").set(null);
+  console.log("✅ Собрание завершено");
+}, 20000);
 
-    console.log("✅ Собрание завершено");
-  }, 20000);
 });
 
 // ==================== Отображение голосов ====================
