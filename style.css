@@ -17,6 +17,15 @@ body {
   overflow: hidden;
 }
 
+/* Стиль для фона на время собрания */
+.meeting-active {
+  background-image: url('path_to_meeting_background.png');  /* Замените на нужное изображение */
+  background-size: cover;
+  background-position: center center;
+  background-attachment: fixed;
+}
+
+
 #countdownScreen {
   display: none;
   justify-content: center;
@@ -49,15 +58,16 @@ body {
 }
 
 
-/*body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: -1;
-} 
-*/
-
+body::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5); /* Черный полупрозрачный слой */
+  z-index: -1; /* Помещает затемняющий слой за содержимым */
+}
 #hudScreen {
   position: absolute;
   top: 50%;
@@ -324,46 +334,56 @@ button:hover {
   transform: scale(1.03);
 }
 
-
 #imposterImage {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #0d0d1a; /* Цвет фона, если картинка не загрузится */
+  background-image: url('reveal.png'); /* Замените на путь к вашему изображению */
+  background-repeat: no-repeat;
+  background-position: center center; /* Центрируем изображение */
+  background-size: cover; /* Масштабируем изображение на весь экран */
+  color: white;
+  z-index: 9999;
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
   text-align: center;
-  position: fixed;
-  inset: 0;
-  background: black;
-  color: white;
-  font-size: 2em;
-  z-index: 9999;
-
-  /* 👇 Для плавности */
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.8s ease;
 }
+
 #imposterImage.visible {
   opacity: 1;
   pointer-events: all;
 }
 
-
-#imposterImage img  {
-  width: 100vw;
-  height: 100vh;
+#imposterImage img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
 #imposterRoleText {
-  text-align: center;
-  max-width: 90%;
-  font-size: clamp(1.5em, 4vw, 2.5em); /* адаптивный размер */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(1.5em, 4vw, 2.5em);
   font-weight: bold;
   color: white;
-  text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.7);
+  text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.7);
+  padding: 0 20px;
+  max-width: 90%;
   word-wrap: break-word;
-  white-space: pre-wrap;
-  line-height: 1.4;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 1s ease;
 }
 
+#imposterRoleText.visible {
+  opacity: 1;
+}
