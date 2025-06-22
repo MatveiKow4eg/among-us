@@ -215,10 +215,10 @@ function setupPlayerUI(playerRef) {
       // ✅ ПРОВЕРКА: жив ли игрок, за которого голосуем
       db.ref("players/" + target + "/alive").once("value", aliveSnap => {
         const isAlive = aliveSnap.val();
-        if (!isAlive) {
-          alert("Игрок уже мёртв. Голосовать за него нельзя.");
-          return;
-        }
+       if (isAlive === false || isAlive === 0 || isAlive === "false") {
+  alert("Игрок уже мёртв. Голосовать за него нельзя.");
+  return;
+}
 
         const cooldown = 60 * 1000; // 1 минута
         const expireAt = Date.now() + cooldown;
