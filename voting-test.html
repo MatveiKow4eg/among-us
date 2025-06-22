@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Голосование</title>
+  <style>
+    .hud-card {
+      background-color: #1e1e2f;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .hud-btn {
+      background: linear-gradient(145deg, #2f3cff, #1d2acc);
+      color: #fff;
+      border: 2px solid #4b5eff;
+      padding: 14px;
+      font-size: 1.1em;
+      font-weight: bold;
+      border-radius: 12px;
+      width: 100%;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      box-sizing: border-box;
+    }
+
+    .hud-btn:hover {
+      background: linear-gradient(145deg, #4254ff, #2c38d1);
+    }
+
+    #result {
+      font-size: 1.5em;
+      color: #ffeb3b;
+      font-weight: bold;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="hud-card">
+    <div>
+      <button id="voteBtn" class="hud-btn">Голосовать</button>
+    </div>
+    <div id="result"></div>
+  </div>
+
+  <script>
+    // Имитируем игроков и их голосование
+    let votes = { "player1": 0, "player2": 0, "player3": 0 };
+    
+    // Функция для начала голосования
+    function startVoting() {
+      // Скрываем кнопку голосования после нажатия
+      const voteBtn = document.getElementById("voteBtn");
+      voteBtn.disabled = true;
+      voteBtn.innerText = "Голосование началось...";
+
+      // Имитируем голосование (например, 3 игрока голосуют)
+      setTimeout(() => {
+        votes = {
+          "player1": Math.floor(Math.random() * 10),
+          "player2": Math.floor(Math.random() * 10),
+          "player3": Math.floor(Math.random() * 10)
+        };
+
+        // Подсчитываем победителя
+        let winner = Object.keys(votes).reduce((a, b) => votes[a] > votes[b] ? a : b);
+
+        // Показываем результат голосования
+        showResult(winner, votes[winner]);
+      }, 3000); // Имитация времени для голосования (3 секунды)
+    }
+
+    // Функция для отображения результатов
+    function showResult(winner, votes) {
+      const resultDiv = document.getElementById("result");
+      resultDiv.innerHTML = `Победитель: ${winner} с ${votes} голосами!`;
+    }
+
+    // Добавляем обработчик события для кнопки
+    document.getElementById("voteBtn").addEventListener("click", () => {
+      startVoting();
+    });
+  </script>
+</body>
+</html>

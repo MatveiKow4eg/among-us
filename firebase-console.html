@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Консоль изменений Firebase</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: sans-serif; background: #111; color: white; padding: 20px; }
+    h1 { margin-bottom: 20px; }
+    .log { font-family: monospace; background: #222; padding: 12px; margin: 16px 0; border-radius: 8px; max-height: 300px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h1>🔥 Консоль изменений Firebase</h1>
+  <div class="log" id="log"></div>
+
+  <!-- Подключаем Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-analytics-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+  <script>
+    // Инициализация Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyCv0aQq6jTRdPPcTi8yjH4K9goky1IcHqQ",
+      authDomain: "among-us-3c0e0.firebaseapp.com",
+      databaseURL: "https://among-us-3c0e0-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "among-us-3c0e0",
+      storageBucket: "among-us-3c0e0.appspot.com",
+      messagingSenderId: "430810539681",
+      appId: "1:430810539681:web:6b87449fd40e17cb0b72e0"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database(); // Инициализация базы данных
+    const analytics = firebase.analytics(); // Инициализация Firebase Analytics
+
+    // Функция для логирования сообщений в консоль
+    function logToConsole(message) {
+      const logElement = document.getElementById('log');
+      logElement.innerHTML += message + "<br>";
+      logElement.scrollTop = logElement.scrollHeight;  // Прокрутка в конец
+    }
+
+    // Логирование события в Firebase Analytics и вывод в консоль
+    function logFirebaseEvent(eventType, details) {
+      analytics.logEvent(eventType, details);  // Отправка события в Firebase Analytics
+      logToConsole(`Firebase Event Logged: ${eventType}`, details); // Для отладки в консоли
+      console.log(`Firebase Event Logged: ${eventType}`, details); // Логирование в браузерной консоли
+      console.trace();  // Покажет стек вызовов, чтобы понять, откуда вызвана операция
+    }
+
+    // Функция для безопасного получения данных
+    function safeGetValue(value) {
+      return value !== undefined && value !== null ? value : "Недоступно";
+    }
+
+    // Слушаем изменения в базе данных (все данные, не только suspicion)
+    db.ref().on("child_added", (snapshot) => {
+      const addedData = snapshot.val();
+      logToConsole(`Новые данные добавлены: ${JSON.stringify(addedData)}`);
+      logFirebaseEvent("child_added", { path: snapshot.ref.path.toString(), data: addedData });
+    });
+
+    db.ref().on("child_changed", (snapshot) => {
+      const changedData = snapshot.val();
+      logToConsole(`Данные обновлены: ${JSON.stringify(changedData)}`);
+      logFirebaseEvent("child_changed", { path: snapshot.ref.path.toString(), data: changedData });
+    });
+
+    db.ref().on("child_removed", (snapshot) => {
+      const removedData = snapshot.val();
+      logToConsole(`Данные удалены: ${JSON.stringify(removedData)}`);
+      logFirebaseEvent("child_removed", { path: snapshot.ref.path.toString(), data: removedData });
+    });
+
+    db.ref().on("value", (snapshot) => {
+      const data = snapshot.val();
+      logToConsole(`Изменения в базе данных: ${JSON.stringify(data, null, 2)}`);
+      logFirebaseEvent("data_changed", { path: "all_data", data: data });
+    });
+
+    // Слушаем изменения в ветке suspicion
+    db.ref("suspicion").on("child_added", (snapshot) => {
+      const addedData = snapshot.val();
+      logToConsole(`Новые данные добавлены в suspicion: ${JSON.stringify(addedData)}`);
+      logFirebaseEvent("suspicion_child_added", { path: snapshot.ref.path.toString(), data: addedData });
+    });
+
+    db.ref("suspicion").on("child_removed", (snapshot) => {
+      const removedData = snapshot.val();
+      // Логирование удаленных данных в консоль
+      logToConsole(`Данные удалены из suspicion: ${JSON.stringify(removedData)}`);
+      logFirebaseEvent("suspicion_child_removed", { path: snapshot.ref.path.toString(), data: removedData });
+      
+      // Отображение стека вызовов, если данные удалены
+      console.trace("Удаление данных из suspicion произошло из следующего кода:");
+    });
+
+    db.ref("suspicion").on("child_changed", (snapshot) => {
+      const changedData = snapshot.val();
+      logToConsole(`Данные изменены в suspicion: ${JSON.stringify(changedData)}`);
+      logFirebaseEvent("suspicion_child_changed", { path: snapshot.ref.path.toString(), data: changedData });
+    });
+
+  </script>
+</body>
+</html>
