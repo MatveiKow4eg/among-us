@@ -33,25 +33,81 @@ function handlePlayerDeletion() {
   alert("Вы были удалены админом.");
 }
 
+// ======= Мониторинг онлайн-игроков =======
+let onlinePlayersListener = null;
+function monitorOnlinePlayers() {
+  const onlineNumber = document.getElementById("onlineNumber");
+  if (!onlineNumber) return;
+  // Снимаем старую подписку, если была
+  if (onlinePlayersListener) db.ref("players").off("value", onlinePlayersListener);
+  onlinePlayersListener = snap => {
+    const players = snap.val() || {};
+    const count = Object.values(players).filter(p => p.status === "alive").length;
+    onlineNumber.textContent = count;
+  };
+  db.ref("players").on("value", onlinePlayersListener);
+}
+
+let hudPlayersListener = null;
+function monitorHudOnlinePlayers() {
+  const hudOnlineNumber = document.getElementById("hudOnlineNumber");
+  if (!hudOnlineNumber) return;
+  // Снимаем старую подписку, если была
+  if (hudPlayersListener) db.ref("players").off("value", hudPlayersListener);
+  hudPlayersListener = snap => {
+    const players = snap.val() || {};
+    const count = Object.values(players).filter(p => p.status === "alive").length;
+    hudOnlineNumber.textContent = count;
+  };
+  db.ref("players").on("value", hudPlayersListener);
+}
+
+// ==================== Сброс к ожиданию ====================
 function handleGameResetToWaiting() {
   resetAllScreens();
   const waitingScreen = document.getElementById("waitingScreen");
   if (waitingScreen) waitingScreen.style.display = "flex";
   localStorage.removeItem("voted");
+  monitorOnlinePlayers();
 }
 
 // ==================== Старт ====================
 document.addEventListener("DOMContentLoaded", () => {
   const registerBtn = document.getElementById("registerBtn");
   if (registerBtn) {
-    registerBtn.onclick = () => {
+    registerBtn.onclick = async () => {
       const input = document.getElementById("playerInput");
       const num = input.value.trim();
-      if (!/^[1-9][0-9]?$|^60$/.test(num)) return alert("Введите номер от 1 до 60");
-      initHUD(num);
+      if (!/^[1-9][0-9]?$|^60$/.test(num)) {
+        alert("Введите номер от 1 до 60");
+        return;
+      }
+
+      // Проверка уникальности номера в базе:
+      try {
+        const snap = await db.ref("players/" + num).once("value");
+        if (snap.exists()) {
+          alert("Этот номер уже занят, выберите другой!");
+          return;
+        }
+
+        // Если номер свободен, регистрируем игрока
+        await db.ref("players/" + num).set({
+          status: "alive",
+          joinedAt: Date.now()
+        });
+
+        // Переход к HUD
+        initHUD(num);
+
+      } catch (e) {
+        alert("Ошибка соединения, попробуйте ещё раз");
+        console.error(e);
+      }
     };
   }
 
+  // --- Восстановление игрока при повторном входе --- //
   const saved = localStorage.getItem("playerNumber");
   if (saved) {
     db.ref("players/" + saved).once("value", snap => {
@@ -69,7 +125,10 @@ function initHUD(number) {
 
   resetAllScreens();
   const waitingScreen = document.getElementById("waitingScreen");
-  if (waitingScreen) waitingScreen.style.display = "flex";
+  if (waitingScreen) {
+    waitingScreen.style.display = "flex";
+    monitorOnlinePlayers();
+  }
 
   db.ref("players/" + number).once("value").then(snap => {
     if (!snap.exists()) return playerRef.set({ status: "alive", role: "crew", joinedAt: Date.now() });
@@ -148,10 +207,12 @@ function showHUD(playerRef) {
   if (roleButton) roleButton.style.display = "block";
   if (playerNumberEl) playerNumberEl.innerText = playerNumber;
   if (playerAvatar) playerAvatar.src = `avatars/${['red','blue','orange','black','white','pink'][(playerNumber - 1) % 6]}.webp`;
-
+  monitorHudOnlinePlayers(); // Показываем онлайн прямо в HUD!
   setupPlayerUI(playerRef);
   checkVotingWindow();
   updateMyVoteInfo();
+  db.ref("suspicion").on("value", () => updateMyVoteInfo());
+db.ref("players").on("value", () => updateMyVoteInfo());
 }
 
 // ==================== UI ====================
@@ -472,14 +533,24 @@ db.ref("meetings/votes").on("value", (snapshot) => {
 });
 
 function updateMyVoteInfo() {
-  db.ref("suspicion").once("value", snap => {
-    const suspicion = snap.val() || {};
+  // Слушаем изменения suspicion и players
+  Promise.all([
+    db.ref("suspicion").once("value"),
+    db.ref("players").once("value")
+  ]).then(([suspicionSnap, playersSnap]) => {
+    const suspicion = suspicionSnap.val() || {};
+    const players = playersSnap.val() || {};
     let myTarget = null;
+
     Object.entries(suspicion).forEach(([target, voters]) => {
-      if (voters && voters[playerNumber]) {
+      if (
+        voters && voters[playerNumber] &&
+        players[target] && players[target].status === "alive"
+      ) {
         myTarget = target;
       }
     });
+
     const voteInfoEl = document.getElementById("myVoteInfo");
     if (voteInfoEl) {
       voteInfoEl.innerText = myTarget
@@ -488,6 +559,7 @@ function updateMyVoteInfo() {
     }
   });
 }
+
 
 function checkVotingWindow() {
   const voteBtn = document.getElementById("voteBtn");
