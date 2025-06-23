@@ -77,12 +77,11 @@ document.addEventListener("DOMContentLoaded", () => {
   if (registerBtn) {
     registerBtn.onclick = async () => {
       const input = document.getElementById("playerInput");
-      const num = input.value.trim();
-      if (!/^[1-9][0-9]?$|^60$/.test(num)) {
-        alert("Введите номер от 1 до 60");
-        return;
-      }
-
+     const num = parseInt(input.value.trim());
+if (isNaN(num) || num < 1 || num > 60) {
+  alert("Введите номер от 1 до 60");
+  return;
+}
       // Проверка уникальности номера в базе:
       try {
         const snap = await db.ref("players/" + num).once("value");
