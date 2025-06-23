@@ -32,6 +32,7 @@ db.ref("meetings").on("value", async (snap) => {
     // Если нет голосов, завершаем собрание
     if (Object.keys(votes).length === 0) {
       console.log("Нет голосов, собрание завершено");
+      // Для случая "никого не кикнули" (можешь добавить свой экран, если нужно)
       await db.ref("meetings").set(null);
       return;
     }
@@ -43,13 +44,27 @@ db.ref("meetings").on("value", async (snap) => {
     });
 
     const totalVotes = kick + skip;
-    if (totalVotes > 0 && (kick / totalVotes) > 0.5) {
+    let kicked = false;
+
+    if (totalVotes > 0 && (kick / totalVotes) > 0.5 && meeting.target) {
+      // Кик игрока, которого выбрали
       await db.ref(`players/${meeting.target}/status`).set("dead");
+      // Получаем роль кикнутого
+      const playerRoleSnap = await db.ref(`players/${meeting.target}/role`).once("value");
+      const playerRole = playerRoleSnap.val() || "crew";
+      // Сохраняем инфу о кике для всех клиентов
+      await db.ref("game/lastKicked").set({
+        number: meeting.target,
+        role: playerRole,
+        shownAt: Date.now()
+      });
+      kicked = true;
     }
 
     await db.ref("game/globalCooldownUntil").set(Date.now() + 60000);
     await db.ref("meetings").set(null);
 
-    console.log("✅ Собрание завершено");
+    console.log(`✅ Собрание завершено${kicked ? " — был кик" : ""}`);
+    
   }, 20000);
 });
