@@ -142,6 +142,23 @@ ul#taskList {
   list-style: disc;
 }
 
+
+#meetingSection {
+    bottom: auto;
+    z-index: 1000;
+    left: 50%;
+    top: 50%;
+  background: rgb(7 13 19);   /* красивый тёмно-синий фон с прозрачностью */
+  border-radius: 18px;
+  box-shadow: 1px 2px 20px 20px #00010e;
+  padding: 32px 24px;
+  color: #fff;
+  border: 2px solid #000000;            /* или другой яркий акцент */
+  min-width: 350px;
+  max-width: 98vw;
+  margin: 0 auto;
+}
+
 .vote-section button,
 #meetingSection button,
 #roleButton,
