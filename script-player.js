@@ -154,19 +154,16 @@ function showHUD(playerRef) {
   updateMyVoteInfo();
 }
 
-
 // ==================== UI ====================
 function setupPlayerUI(playerRef) {
   const voteBtn = document.getElementById("voteBtn");
   const statusEl = document.getElementById("playerStatus");
   const taskSection = document.querySelector(".tasks-section");
   const meetingSection = document.getElementById("meetingSection");
-  const meetingTarget = document.getElementById("meetingTarget");
 
   // Функция для переключения фона
   function changeBackground(isMeetingActive) {
     const body = document.body;
-
     if (isMeetingActive) {
       body.classList.add("meeting-active");
     } else {
@@ -174,13 +171,12 @@ function setupPlayerUI(playerRef) {
     }
   }
 
-  // Подключаемся к Firebase и следим за состоянием собрания
   db.ref("meetings").on("value", snap => {
     const meeting = snap.val();
     if (meeting && meeting.active) {
-      changeBackground(true);  // Когда собрание активно
+      changeBackground(true);
     } else {
-      changeBackground(false);  // Когда собрание завершено
+      changeBackground(false);
     }
   });
 
@@ -216,34 +212,27 @@ function setupPlayerUI(playerRef) {
     if (!target || isNaN(target) || target < 1 || target > 60 || Number(target) === Number(playerNumber)) {
       return alert("Некорректный выбор");
     }
-
     db.ref("game/startedAt").once("value", snap => {
       const startedAt = snap.val() || 0;
       const now = Date.now();
-
       if (!startedAt || now < startedAt + 60 * 1000) {
         alert("Голосовать можно только через минуту после старта игры!");
         return;
       }
-
       db.ref("players/" + playerNumber + "/voteCooldownUntil").once("value", snap2 => {
         const cooldownUntil = snap2.val() || 0;
         if (cooldownUntil && now < cooldownUntil) {
           alert(`Голосовать можно через ${formatTime(cooldownUntil - now)}`);
           return;
         }
-
-        // ✅ ПРОВЕРКА: жив ли игрок, за которого голосуем
         db.ref("players/" + target + "/status").once("value", statusSnap => {
           const status = statusSnap.val();
           if (status !== "alive") {
             alert("Игрок уже мёртв. Голосовать за него нельзя.");
             return;
           }
-
           const cooldown = 60 * 1000; // 1 минута
           const expireAt = Date.now() + cooldown;
-
           db.ref("suspicion").once("value", snap3 => {
             const suspicion = snap3.val() || {};
             const updates = {};
@@ -254,9 +243,7 @@ function setupPlayerUI(playerRef) {
             });
             updates[`suspicion/${target}/${playerNumber}`] = expireAt;
             updates[`players/${playerNumber}/voteCooldownUntil`] = expireAt;
-
             db.ref().update(updates);
-
             canVote = false;
             if (voteBtn) {
               voteBtn.disabled = true;
@@ -270,7 +257,6 @@ function setupPlayerUI(playerRef) {
     });
   };
 }
-
 
 // === Глобальная переменная для таймера собрания
 window.meetingTimerInterval = null;
@@ -288,31 +274,23 @@ window.db.ref("meetings").on("value", snap => {
   if (!hudScreen || !meetingSection || !meetingTarget) return;
 
   if (m && m.active) {
-    // Пока собрание активно
     hudScreen.style.display = "none";
     meetingSection.style.display = "block";
     meetingTarget.innerText = `Цель: Игрок №${m.target}`;
-
-    // Таймер собрания на 20 секунд
     if (meetingTimer && m.startedAt) {
       if (window.meetingTimerInterval) clearInterval(window.meetingTimerInterval);
-
       function updateMeetingTimerDisplay() {
         const now = Date.now();
         const secondsLeft = Math.max(0, 20 - Math.floor((now - m.startedAt) / 1000));
         meetingTimer.innerText = secondsLeft;
-
         if (secondsLeft <= 0 && window.meetingTimerInterval) {
           clearInterval(window.meetingTimerInterval);
-          countVotes(m);  // ✅ Подсчёт голосов
+          countVotes(m);
         }
       }
-
       updateMeetingTimerDisplay();
       window.meetingTimerInterval = setInterval(updateMeetingTimerDisplay, 1000);
     }
-
-    // Обновление голосов в реальном времени
     window.db.ref("meetings/votes").on("value", (snapshot) => {
       const votes = snapshot.val() || {};
       let kick = 0, skip = 0;
@@ -325,247 +303,173 @@ window.db.ref("meetings").on("value", snap => {
     });
 
   } else {
-    // Когда собрание завершилось или не активно
     meetingSection.style.display = "none";
     if (window.meetingTimerInterval) clearInterval(window.meetingTimerInterval);
     localStorage.removeItem("voted");
-
-    // Проверяем статус игрока
     db.ref("players/" + playerNumber).once("value").then(snap => {
-      if (snap.val()?.status === "alive") {
-        hudScreen.style.display = "block"; // Показать HUD
-        checkVotingWindow();  // Обновить окно голосования, если необходимо
+      if (snap.val()?.status !== "alive") {
+        hudScreen.style.display = "none";
       } else {
-        hudScreen.style.display = "none"; // Скрыть HUD, если игрок мертв
+        hudScreen.style.display = "block"; // 👈 возвращаем HUD если игрок жив!
       }
     });
   }
 });
 
+// ==================== Глобальный слушатель кика ====================
+let lastKickedShownAt = 0;
+db.ref("game/lastKicked").on("value", snap => {
+  const data = snap.val();
+  if (!data) return;
+  if (data.shownAt && data.shownAt !== lastKickedShownAt) {
+    lastKickedShownAt = data.shownAt;
+    document.getElementById("hudScreen").style.display = "none";
+    document.getElementById("meetingSection").style.display = "none";
+    showImposterImage(
+      `Игрок №${data.number} — ${data.role === "imposter" ? "Импостер" : "Мирный"}`
+    );
+    setTimeout(() => {
+      document.getElementById("hudScreen").style.display = "block";
+    }, 6500);
+  }
+});
 
 // ==================== Подсчёт голосов ====================
 function countVotes(meeting) {
   const votes = meeting.votes || {};
   let kick = 0, skip = 0;
-
   Object.values(votes).forEach(v => {
     if (v === "kick") kick++;
     else if (v === "skip") skip++;
   });
-
   const kickCount = document.getElementById("meetingKickCount");
   const skipCount = document.getElementById("meetingSkipCount");
-
   if (kickCount) kickCount.innerText = `Кик: ${kick}`;
   if (skipCount) skipCount.innerText = `Оставить: ${skip}`;
-  console.log(`Голоса за кик: ${kick}, за пропуск: ${skip}`);
-
   if (kick > skip && meeting.target) {
     const kickedPlayer = meeting.target;
-    console.log(`Решение: кикнут игрок №${kickedPlayer}`);
-
     db.ref("players/" + kickedPlayer + "/role").once("value", snap => {
       const playerRole = snap.val();
-      console.log(`Роль кикнутого: ${playerRole}`);
+      // отмечаем игрока как убитого
       db.ref("players/" + kickedPlayer).update({ status: "dead" });
-
-      if (playerRole === "imposter") {
-        showImposterImage("Импостер");
-      } else {
-        showImposterImage("Мирный");
-      }
+      // обновляем поле lastKicked
+      db.ref("game/lastKicked").set({
+        number: kickedPlayer,
+        role: playerRole,
+        shownAt: Date.now()
+      });
+      // Локальный вызов showImposterImage УДАЛЁН!
     });
   }
 }
-// ===== Печатная машинка =====
-function typeTextWithRole(element, staticText, roleText, roleColor, speed = 50) {
-  element.textContent = ""; // очищаем
-  let i = 0;
 
-  const interval = setInterval(() => {
-    element.textContent += staticText[i];
-    i++;
-    if (i >= staticText.length) {
-      clearInterval(interval);
-
-      // ✅ Добавляем роль как <span>
-      const span = document.createElement("span");
-      span.textContent = roleText;
-      span.style.color = roleColor;
-      span.style.fontWeight = "bold";
-      element.appendChild(span);
-    }
-  }, speed);
-}
-
-// ===== Печатная машинка =====
-function typeTextWithRole(element, staticText, roleText, roleColor, speed = 50) {
-  element.textContent = ""; // очищаем
-  let i = 0;
-
-  const interval = setInterval(() => {
-    element.textContent += staticText[i];
-    i++;
-    if (i >= staticText.length) {
-      clearInterval(interval);
-
-      // ✅ Добавляем роль как <span>
-      const span = document.createElement("span");
-      span.textContent = roleText;
-      span.style.color = roleColor;
-      span.style.fontWeight = "bold";
-      element.appendChild(span);
-    }
-  }, speed);
-}
-// ===== Печатная машинка =====
-function typeTextWithRole(element, staticText, roleText, roleColor, speed = 50) {
-  element.textContent = ""; // очищаем
-  let i = 0;
-
-  const interval = setInterval(() => {
-    element.textContent += staticText[i];
-    i++;
-    if (i >= staticText.length) {
-      clearInterval(interval);
-
-      // ✅ Добавляем роль как <span>
-      const span = document.createElement("span");
-      span.textContent = roleText;
-      span.style.color = roleColor;
-      span.style.fontWeight = "bold";
-      element.appendChild(span);
-    }
-  }, speed);
-}
-
-// ==================== Показ изображения роли ====================
-function showImposterImage(playerRole) {
-  console.log("showImposterImage вызвана:", playerRole);
-
+// ==================== Показ изображения роли (с печатной машинкой!) ====================
+function showImposterImage(playerRoleString) {
   const imageContainer = document.getElementById('imposterImage');
   const roleTextElement = document.getElementById('imposterRoleText');
-  const hudScreen = document.getElementById("hudScreen");
+  if (!imageContainer || !roleTextElement) return;
 
-  if (!imageContainer || !roleTextElement) {
-    console.error("❌ Картинка или текст не найдены");
-    return;
+  // Парсим номер и роль
+  let numberText = "";
+  let roleText = "";
+  const match = playerRoleString.match(/^Игрок №(\d+)\s*—\s*(Импостер|Мирный)$/i);
+  if (match) {
+    numberText = `Игрок №${match[1]}`;
+    roleText = match[2];
+  } else {
+    numberText = playerRoleString;
+    roleText = "";
   }
 
-  // Очищаем текст перед новым отображением
+  // Показываем контейнер и сразу делаем текст видимым!
+  imageContainer.style.display = "flex";
+  imageContainer.classList.add("visible");
+  roleTextElement.classList.add("visible");
+  roleTextElement.style.color = "white";
   roleTextElement.textContent = "";
 
-  // Показываем контейнер с плавным появлением
-  imageContainer.style.display = "flex";
-  setTimeout(() => {
-    imageContainer.classList.add("visible");  // Плавное появление изображения
-  }, 10);  // Используем минимальную задержку для синхронизации
-
-  // Показываем роль
-  roleTextElement.textContent = playerRole;
-  roleTextElement.style.color = playerRole.toLowerCase().includes("импостер") ? "red" : "dodgerblue";
-  roleTextElement.classList.add("visible"); // Плавное появление роли
-
-  // Через 6 секунд скрыть картинку и вернуть HUD
-  setTimeout(() => {
-    // Плавное исчезновение изображения
-    imageContainer.classList.remove("visible");
-
-    // Через 0.5с после исчезновения — скрыть из DOM
-    setTimeout(() => {
-      imageContainer.style.display = "none";
-      
-      if (hudScreen) {
-        hudScreen.style.display = "flex"; // Переход к HUD
-        console.log("HUD снова показан");
-      }
-    }, 500); // Задержка на скрытие элемента
-  }, 6000); // 6 секунд
+  // Печатная машинка для "Игрок №..."
+  let i = 0;
+  function typeNumberText() {
+    if (i <= numberText.length) {
+      roleTextElement.textContent = numberText.slice(0, i);
+      i++;
+      setTimeout(typeNumberText, 200);
+    } else {
+      // Пауза, затем плавно скрываем текст
+      setTimeout(() => {
+        roleTextElement.classList.remove("visible"); // исчезает через opacity
+        setTimeout(() => {
+          // Показываем роль плавно
+          roleTextElement.textContent = roleText;
+          roleTextElement.style.color = roleText.toLowerCase().includes("импостер") ? "red" : "dodgerblue";
+          roleTextElement.classList.add("visible"); // плавно появляется
+          // Через 5 секунд скрываем весь экран
+          setTimeout(() => {
+            imageContainer.classList.remove("visible");
+            setTimeout(() => {
+              imageContainer.style.display = "none";
+            }, 1000); // время transition: opacity 1s
+          }, 4000);
+        }, 1000); // ждём, пока opacity дойдёт до 0 (1s из transition)
+      }, 1500); // пауза после печатной машинки
+    }
+  }
+  typeNumberText();
 }
 
 
-
-
-// Функция для обновления видимости кнопок
+// === Дальше идут кнопки и голоса (можно не менять)
 function updateVotingButtons() {
   const voteKickBtn = document.getElementById("voteKickBtn");
   const voteSkipBtn = document.getElementById("voteSkipBtn");
-
-  // Показываем кнопки, если они скрыты
   if (voteKickBtn && voteSkipBtn) {
-    voteKickBtn.style.display = 'inline-block';  // Или 'block' в зависимости от вашего layout
+    voteKickBtn.style.display = 'inline-block';
     voteSkipBtn.style.display = 'inline-block';
   }
 }
 
-// Функция для скрытия кнопок после голосования
 function hideVotingButtons() {
   const voteKickBtn = document.getElementById("voteKickBtn");
   const voteSkipBtn = document.getElementById("voteSkipBtn");
-
   if (voteKickBtn && voteSkipBtn) {
     voteKickBtn.style.display = "none";
     voteSkipBtn.style.display = "none";
   }
 }
 
-// Обработчик кнопки голосования "Kick"
 const voteKickBtn = document.getElementById("voteKickBtn");
 if (voteKickBtn) {
   voteKickBtn.onclick = () => {
     db.ref(`meetings/votes/${playerNumber}`).set("kick").then(() => {
-      console.log("Голос за Kick отправлен.");
       hideVotingButtons();
-    }).catch((error) => {
-      console.error("Ошибка при отправке голоса за Kick:", error);
     });
   };
-} else {
-  console.log("Кнопка 'Kick' не найдена.");
 }
 
-// Обработчик кнопки голосования "Skip"
 const voteSkipBtn = document.getElementById("voteSkipBtn");
 if (voteSkipBtn) {
   voteSkipBtn.onclick = () => {
     db.ref(`meetings/votes/${playerNumber}`).set("skip").then(() => {
-      console.log("Голос за Skip отправлен.");
       hideVotingButtons();
-    }).catch((error) => {
-      console.error("Ошибка при отправке голоса за Skip:", error);
     });
   };
-} else {
-  console.log("Кнопка 'Skip' не найдена.");
 }
 
-// Слушаем изменения в Firebase и обновляем кнопки
 db.ref("meetings").on("value", (snapshot) => {
   const meetingData = snapshot.val();
   if (!meetingData) return;
-
-  console.log("Данные встречи обновлены:", meetingData);
-  
-  // Если голосование активно и игрок еще не проголосовал, показываем кнопки
   if (meetingData.active && !(meetingData.votes && meetingData.votes[playerNumber])) {
-    console.log("Показываем кнопки для игрока:", playerNumber);
     updateVotingButtons();
-  } else {
-    console.log("Голосование завершено или игрок уже проголосовал.");
   }
 });
 
-
-// Слушатель изменений в голосованиях
 db.ref("meetings/votes").on("value", (snapshot) => {
   const votes = snapshot.val();
-
-  // Логика для отображения кнопок после первого голосования
   if (votes && !votes[playerNumber]) {
-    updateVotingButtons();  // Кнопки должны быть видимыми, если игрок еще не проголосовал
+    updateVotingButtons();
   }
 });
-
 
 function updateMyVoteInfo() {
   db.ref("suspicion").once("value", snap => {
