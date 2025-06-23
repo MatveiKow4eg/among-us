@@ -288,6 +288,7 @@ window.db.ref("meetings").on("value", snap => {
   if (!hudScreen || !meetingSection || !meetingTarget) return;
 
   if (m && m.active) {
+    // Пока собрание активно
     hudScreen.style.display = "none";
     meetingSection.style.display = "block";
     meetingTarget.innerText = `Цель: Игрок №${m.target}`;
@@ -311,7 +312,7 @@ window.db.ref("meetings").on("value", snap => {
       window.meetingTimerInterval = setInterval(updateMeetingTimerDisplay, 1000);
     }
 
-    // ✅ Обновление голосов в реальном времени
+    // Обновление голосов в реальном времени
     window.db.ref("meetings/votes").on("value", (snapshot) => {
       const votes = snapshot.val() || {};
       let kick = 0, skip = 0;
@@ -324,20 +325,23 @@ window.db.ref("meetings").on("value", snap => {
     });
 
   } else {
+    // Когда собрание завершилось или не активно
     meetingSection.style.display = "none";
     if (window.meetingTimerInterval) clearInterval(window.meetingTimerInterval);
     localStorage.removeItem("voted");
 
+    // Проверяем статус игрока
     db.ref("players/" + playerNumber).once("value").then(snap => {
       if (snap.val()?.status === "alive") {
-        hudScreen.style.display = "block";
-        checkVotingWindow();
+        hudScreen.style.display = "block"; // Показать HUD
+        checkVotingWindow();  // Обновить окно голосования, если необходимо
       } else {
-        hudScreen.style.display = "none";
+        hudScreen.style.display = "none"; // Скрыть HUD, если игрок мертв
       }
     });
   }
 });
+
 
 // ==================== Подсчёт голосов ====================
 function countVotes(meeting) {
@@ -441,67 +445,126 @@ function showImposterImage(playerRole) {
 
   const imageContainer = document.getElementById('imposterImage');
   const roleTextElement = document.getElementById('imposterRoleText');
+  const hudScreen = document.getElementById("hudScreen");
 
   if (!imageContainer || !roleTextElement) {
     console.error("❌ Картинка или текст не найдены");
     return;
   }
 
-  roleTextElement.textContent = ""; // Очищаем текст перед новым отображением
+  // Очищаем текст перед новым отображением
+  roleTextElement.textContent = "";
 
   // Показываем контейнер с плавным появлением
   imageContainer.style.display = "flex";
   setTimeout(() => {
     imageContainer.classList.add("visible");  // Плавное появление изображения
-  }, 10);
+  }, 10);  // Используем минимальную задержку для синхронизации
 
-  // Эффект печатной машинки для текста "Он был..."
+  // Показываем роль
+  roleTextElement.textContent = playerRole;
+  roleTextElement.style.color = playerRole.toLowerCase().includes("импостер") ? "red" : "dodgerblue";
+  roleTextElement.classList.add("visible"); // Плавное появление роли
+
+  // Через 6 секунд скрыть картинку и вернуть HUD
   setTimeout(() => {
-    roleTextElement.textContent = ""; // Очищаем текст
-    roleTextElement.classList.remove("visible"); // Убираем видимость текста "Он был..."
-    setTimeout(() => {
-      // Показываем роль (без машинки)
-      roleTextElement.textContent = playerRole;
-      roleTextElement.style.color = playerRole.toLowerCase().includes("импостер") ? "red" : "dodgerblue";
-      roleTextElement.classList.add("visible"); // Плавное появление роли
-    }, 500); // Ждем, чтобы "Он был..." исчез
-
-  }, 1000);  // Через 1 секунду после появления "Он был..."
-
-  // Через 6 секунд скрыть
-  setTimeout(() => {
-    imageContainer.classList.remove("visible");  // Плавное исчезновение изображения
+    // Плавное исчезновение изображения
+    imageContainer.classList.remove("visible");
 
     // Через 0.5с после исчезновения — скрыть из DOM
     setTimeout(() => {
       imageContainer.style.display = "none";
-      const hudScreen = document.getElementById("hudScreen");
-      if (hudScreen) hudScreen.style.display = "flex"; // Переход к HUD
+      
+      if (hudScreen) {
+        hudScreen.style.display = "flex"; // Переход к HUD
+        console.log("HUD снова показан");
+      }
     }, 500); // Задержка на скрытие элемента
   }, 6000); // 6 секунд
 }
 
 
 
-// Обработчик кнопок голосования
+
+// Функция для обновления видимости кнопок
+function updateVotingButtons() {
+  const voteKickBtn = document.getElementById("voteKickBtn");
+  const voteSkipBtn = document.getElementById("voteSkipBtn");
+
+  // Показываем кнопки, если они скрыты
+  if (voteKickBtn && voteSkipBtn) {
+    voteKickBtn.style.display = 'inline-block';  // Или 'block' в зависимости от вашего layout
+    voteSkipBtn.style.display = 'inline-block';
+  }
+}
+
+// Функция для скрытия кнопок после голосования
+function hideVotingButtons() {
+  const voteKickBtn = document.getElementById("voteKickBtn");
+  const voteSkipBtn = document.getElementById("voteSkipBtn");
+
+  if (voteKickBtn && voteSkipBtn) {
+    voteKickBtn.style.display = "none";
+    voteSkipBtn.style.display = "none";
+  }
+}
+
+// Обработчик кнопки голосования "Kick"
 const voteKickBtn = document.getElementById("voteKickBtn");
 if (voteKickBtn) {
   voteKickBtn.onclick = () => {
-    db.ref(`meetings/votes/${playerNumber}`).set("kick");
-    voteKickBtn.style.display = "none";
-    const voteSkipBtn = document.getElementById("voteSkipBtn");
-    if (voteSkipBtn) voteSkipBtn.style.display = "none";
+    db.ref(`meetings/votes/${playerNumber}`).set("kick").then(() => {
+      console.log("Голос за Kick отправлен.");
+      hideVotingButtons();
+    }).catch((error) => {
+      console.error("Ошибка при отправке голоса за Kick:", error);
+    });
   };
+} else {
+  console.log("Кнопка 'Kick' не найдена.");
 }
 
+// Обработчик кнопки голосования "Skip"
 const voteSkipBtn = document.getElementById("voteSkipBtn");
 if (voteSkipBtn) {
   voteSkipBtn.onclick = () => {
-    db.ref(`meetings/votes/${playerNumber}`).set("skip");
-    voteKickBtn.style.display = "none";
-    voteSkipBtn.style.display = "none";
+    db.ref(`meetings/votes/${playerNumber}`).set("skip").then(() => {
+      console.log("Голос за Skip отправлен.");
+      hideVotingButtons();
+    }).catch((error) => {
+      console.error("Ошибка при отправке голоса за Skip:", error);
+    });
   };
+} else {
+  console.log("Кнопка 'Skip' не найдена.");
 }
+
+// Слушаем изменения в Firebase и обновляем кнопки
+db.ref("meetings").on("value", (snapshot) => {
+  const meetingData = snapshot.val();
+  if (!meetingData) return;
+
+  console.log("Данные встречи обновлены:", meetingData);
+  
+  // Если голосование активно и игрок еще не проголосовал, показываем кнопки
+  if (meetingData.active && !(meetingData.votes && meetingData.votes[playerNumber])) {
+    console.log("Показываем кнопки для игрока:", playerNumber);
+    updateVotingButtons();
+  } else {
+    console.log("Голосование завершено или игрок уже проголосовал.");
+  }
+});
+
+
+// Слушатель изменений в голосованиях
+db.ref("meetings/votes").on("value", (snapshot) => {
+  const votes = snapshot.val();
+
+  // Логика для отображения кнопок после первого голосования
+  if (votes && !votes[playerNumber]) {
+    updateVotingButtons();  // Кнопки должны быть видимыми, если игрок еще не проголосовал
+  }
+});
 
 
 function updateMyVoteInfo() {
