@@ -160,9 +160,6 @@ db.ref("game/roleRevealStart").on("value", snap => {
   const start = snap.val();
   if (!start || roleRevealHandled) return;
 
-  // Блокируем повторное отображение роли, если событие старше входа на страницу
-  if (start < sessionStartedAt) return;
-
   roleRevealHandled = true; // блок повторного срабатывания
 
   const now = Date.now();
