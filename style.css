@@ -337,7 +337,7 @@ button:hover {
 }
 
 .screen {
-  display: none !important;
+  display: none;
   position: fixed;
   inset: 0;
   justify-content: center;
@@ -349,7 +349,7 @@ button:hover {
 }
 
 .screen.active {
-  display: flex !important;
+  display: flex;
 }
 
 @media screen and (max-width: 480px) {
