@@ -6,80 +6,190 @@ document.addEventListener("DOMContentLoaded", () => {
   const assignRolesBtn = document.getElementById("assignRolesBtn");
   const gameStateLabel = document.getElementById("gameStateLabel");
   const votingTimer = document.getElementById("votingTimer");
+  const playerFilter = document.getElementById("playerFilter");
+  const imposterInput = document.getElementById("imposterCountInput");
+  const imposterStatusText = document.getElementById("imposterStatusText");
+  const imposterControlBlock = document.getElementById("imposterControlBlock");
+
+// Следим за состоянием игры и переключаем отображение
+db.ref("game/state").on("value", (snap) => {
+  const state = snap.val();
+
+  if (state === "started") {
+    // Скрыть input, показать онлайн-импостеров
+    if (imposterInput) imposterInput.style.display = "none";
+    if (imposterStatusText) {
+      imposterStatusText.style.display = "block";
+      updateImposterOnlineCount();
+    }
+  } else {
+    // Игра остановлена: если роли уже назначены — показать их количество
+    db.ref("game/imposterCount").on("value", (snap) => {
+  const imposterCount = snap.val();
+  db.ref("game/state").once("value").then((stateSnap) => {
+    const state = stateSnap.val();
+
+    if (state === "started") {
+      if (imposterInput) imposterInput.style.display = "none";
+      if (imposterStatusText) {
+        imposterStatusText.style.display = "block";
+        updateImposterOnlineCount();
+      }
+    } else {
+      if (imposterCount) {
+        if (imposterInput) imposterInput.style.display = "none";
+        if (imposterStatusText) {
+          imposterStatusText.style.display = "block";
+          updateImposterStatus();
+        }
+      } else {
+        if (imposterInput) imposterInput.style.display = "block";
+        if (imposterStatusText) imposterStatusText.style.display = "none";
+      }
+    }
+  });
+});
+
+  }
+});
+
+// Обновление текста: Импостеров в игре: X
+function updateImposterStatus() {
+  db.ref("players").once("value").then((snap) => {
+    const players = snap.val() || {};
+    const count = Object.values(players).filter(p => p.role === "imposter" && p.status === "alive").length;
+    if (imposterStatusText) imposterStatusText.textContent = `Импостеров в игре: ${count}`;
+  });
+}
+
+// Обновление текста: Импостеров онлайн: X
+function updateImposterOnlineCount() {
+  db.ref("players").on("value", (snap) => {
+    const players = snap.val() || {};
+    const count = Object.values(players).filter(p => p.role === "imposter" && p.status === "alive").length;
+    if (imposterStatusText) imposterStatusText.textContent = `Импостеров онлайн: ${count}`;
+  });
+}
+
+
+  let allPlayers = {};
 
   // Обновление состояния игры
   db.ref("game/state").on("value", (snap) => {
     const state = snap.val();
-    gameStateLabel.textContent = state === "started" ? "Игра запущена" : "Игра остановлена";
+    if (state === "started") {
+  gameStateLabel.textContent = "Игра запущена";
+  gameStateLabel.style.color = "#00ff88";
+} else {
+  gameStateLabel.textContent = "Игра остановлена";
+  gameStateLabel.style.color = "#ff4444"; 
+}
   });
 
-  // Отображение игроков
+  // Обновление списка игроков
   db.ref("players").on("value", (snapshot) => {
-    const players = snapshot.val() || {};
-    playersList.innerHTML = "";
-    Object.entries(players).forEach(([id, player]) => {
-      const div = document.createElement("div");
-      div.innerHTML = `
-        <strong>№${id}</strong> — ${player.status === "alive" ? "🟢 Жив" : "⚰️ Мёртв"}<br>
-        Роль: ${player.role || "?"}<br>
-      `;
-
-      const killBtn = document.createElement("button");
-      killBtn.textContent = "Убить";
-      killBtn.onclick = () => db.ref(`players/${id}/status`).set("dead");
-
-      const reviveBtn = document.createElement("button");
-      reviveBtn.textContent = "Оживить";
-      reviveBtn.onclick = () => db.ref(`players/${id}/status`).set("alive");
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.textContent = "Удалить";
-      deleteBtn.onclick = () => db.ref(`players/${id}`).remove();
-
-      div.append(killBtn, reviveBtn, deleteBtn);
-      div.style.marginBottom = "15px";
-      playersList.appendChild(div);
-    });
+    allPlayers = snapshot.val() || {};
+    renderPlayers();
   });
+
+  // Фильтрация игроков
+  if (playerFilter) {
+    playerFilter.addEventListener("change", renderPlayers);
+  }
+
+  function renderPlayers() {
+  const filter = playerFilter?.value || "all";
+  playersList.innerHTML = "";
+
+  Object.entries(allPlayers).forEach(([id, player]) => {
+    if (filter === "alive" && player.status !== "alive") return;
+    if (filter === "dead" && player.status !== "dead") return;
+    if (filter === "imposter" && player.role !== "imposter") return;
+
+    const div = document.createElement("div");
+    div.className = "player-entry";
+    div.innerHTML = `
+      <strong>№${id}</strong> — ${player.status === "alive" ? "🟢 Жив" : "⚰️ Мёртв"}<br>
+      Роль: ${player.role || "?"}<br>
+    `;
+
+    const killBtn = document.createElement("button");
+    killBtn.textContent = "Убить";
+    killBtn.onclick = () => db.ref(`players/${id}/status`).set("dead");
+
+    const reviveBtn = document.createElement("button");
+    reviveBtn.textContent = "Оживить";
+    reviveBtn.onclick = () => db.ref(`players/${id}/status`).set("alive");
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.textContent = "Удалить";
+    deleteBtn.onclick = () => db.ref(`players/${id}`).remove();
+
+    const btnRow = document.createElement("div");
+    btnRow.className = "player-buttons";
+    btnRow.append(killBtn, reviveBtn, deleteBtn);
+
+    div.appendChild(btnRow);
+    playersList.appendChild(div);
+  });
+}
+
 
   // Кнопка запуска игры
-startBtn.addEventListener("click", () => {
-  db.ref("players").once("value").then((snap) => {
-    const ids = Object.keys(snap.val() || {});
-    const shuffled = ids.sort(() => 0.5 - Math.random()).slice(0, 10);
-    const updates = {};
+startBtn?.addEventListener("click", async () => {
+  const now = Date.now();
 
-    ids.forEach(id => {
-      updates[`players/${id}/role`] = shuffled.includes(id) ? "imposter" : "crew";
-    });
+  // Проверим, назначены ли импостеры
+  const countSnap = await db.ref("game/imposterCount").once("value");
+  if (!countSnap.exists()) {
+    alert("Сначала назначьте роли!");
+    return;
+  }
 
-    const now = Date.now();
-    updates["game/state"] = "started";
-    updates["game/startedAt"] = now;
-
-    // 👇 Добавляем старт времени показа ролей
-    updates["game/roleRevealStart"] = now + 1000; // можно +1000, чтобы дать 1 секунду на прогрузку
-
-    return db.ref().update(updates);
+  // Запуск игры без изменения ролей
+  await db.ref().update({
+    "game/state": "started",
+    "game/startedAt": now,
+    "game/roleRevealStart": now + 1000
   });
+
+  alert("Игра запущена!");
 });
 
 
   // Кнопка остановки игры
-  stopBtn.addEventListener("click", () => {
-    if (confirm("Остановить игру?")) {
-      db.ref().update({
-        "game/state": "waiting",
-        "game/startedAt": null,
-        "game/voting": null,
-        "suspicion": null,
-        "meetings": null
+ stopBtn?.addEventListener("click", () => {
+  if (confirm("Остановить игру?")) {
+    const updates = {
+  "game/state": "waiting",
+  "game/startedAt": null,
+  "game/voting": null,
+  "game/roleRevealStart": null,
+  "game/imposterCount": null, // <== ДОБАВЛЕНО
+  "suspicion": null,
+  "meetings": null
+};
+
+    // Сброс ролей и статусов игроков
+    db.ref("players").once("value").then((snap) => {
+      const players = snap.val() || {};
+      Object.keys(players).forEach(id => {
+        updates[`players/${id}/role`] = "crew";  // или "?"
+        updates[`players/${id}/status`] = "alive";
       });
-    }
-  });
+
+      return db.ref().update(updates);
+    }).then(() => {
+      alert("Игра остановлена.");
+    }).catch((err) => {
+      console.error("Ошибка при остановке игры:", err);
+    });
+  }
+});
+
 
   // Кнопка очистки игроков
-  clearBtn.addEventListener("click", () => {
+  clearBtn?.addEventListener("click", () => {
     if (confirm("Удалить всех игроков?")) {
       db.ref().update({
         players: null,
@@ -91,39 +201,35 @@ startBtn.addEventListener("click", () => {
   });
 
   // Назначение ролей вручную
-  assignRolesBtn.addEventListener("click", () => {
-    db.ref("players").once("value").then((snap) => {
-      const ids = Object.keys(snap.val() || {});
-      const shuffled = ids.sort(() => 0.5 - Math.random()).slice(0, 10);
-      const updates = {};
-      ids.forEach(id => {
-        updates[`players/${id}/role`] = shuffled.includes(id) ? "imposter" : "crew";
-      });
-      return db.ref().update(updates);
-    }).then(() => {
-      alert("Роли назначены.");
-    });
+  assignRolesBtn?.addEventListener("click", async () => {
+  const countInput = document.getElementById("imposterCountInput");
+  const count = parseInt(countInput?.value?.trim(), 10);
+
+  if (isNaN(count) || count < 1) {
+    alert("Введите корректное число импостеров!");
+    return;
+  }
+
+  const snap = await db.ref("players").once("value");
+  const ids = Object.keys(snap.val() || {});
+
+  if (count > ids.length) {
+    alert("Импостеров не может быть больше, чем игроков!");
+    return;
+  }
+
+  const shuffled = ids.sort(() => 0.5 - Math.random());
+  const imposters = shuffled.slice(0, count);
+
+  const updates = {};
+  ids.forEach(id => {
+    updates[`players/${id}/role`] = imposters.includes(id) ? "imposter" : "crew";
   });
 
-  // Отображение таймера голосования
-  let timerInterval = null;
-  function formatTime(ms) {
-    const sec = Math.ceil(ms / 1000);
-    const min = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${String(min).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  }
-  function updateVotingTimer() {
-    db.ref("game/state").on("value", (snap) => {
-      const state = snap.val();
-      if (state === "started") {
-        votingTimer.innerText = `✅ Голосование открыто`;
-      } else {
-        votingTimer.innerText = `❌ Закрыто`;
-      }
-    });
-  }
+  await db.ref().update(updates);
+  await db.ref("game/imposterCount").set(count); // (если нужно где-то использовать это число)
 
-  // Запускаем отслеживание и таймеры
-  updateVotingTimer();
+  alert(`Назначено импостеров: ${count}`);
 });
+
+})
