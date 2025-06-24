@@ -150,7 +150,6 @@ function initHUD(number) {
       if (!snap.exists()) handlePlayerDeletion();
     });
 
-    // ✅ ВОТ ЗДЕСЬ добавляем отслеживание смерти
     let playerAlive = true;
     db.ref("players/" + number).on("value", snap => {
       const data = snap.val();
@@ -161,6 +160,23 @@ function initHUD(number) {
         if (deathSound) deathSound.play();
       }
     });
+
+      db.ref("game/roleRevealStart").on("value", snap => {
+    const start = snap.val();
+    if (!start) return;
+
+    const now = Date.now();
+    const delay = Math.max(0, start - now);
+
+    setTimeout(() => {
+      db.ref("players/" + number).once("value").then(snap => {
+        const data = snap.val();
+        if (!data || !data.role) return;
+        const roleString = `Игрок №${number} — ${data.role === "imposter" ? "Импостер" : "Мирный"}`;
+        showImposterImage(roleString);
+      });
+    }, delay);
+  });
 
     // обработка сброса
     db.ref("game/state").on("value", snap => {
@@ -462,11 +478,14 @@ function countVotes(meeting) {
 
 // ==================== Показ изображения роли (с печатной машинкой!) ====================
 function showImposterImage(playerRoleString) {
+  // ✅ Защита от повторного запуска
+  if (window._roleRevealRunning) return;
+  window._roleRevealRunning = true;
+
   const imageContainer = document.getElementById('imposterImage');
   const roleTextElement = document.getElementById('imposterRoleText');
   if (!imageContainer || !roleTextElement) return;
 
-  // Парсим номер и роль
   let numberText = "";
   let roleText = "";
   const match = playerRoleString.match(/^Игрок №(\d+)\s*—\s*(Импостер|Мирный)$/i);
@@ -478,41 +497,41 @@ function showImposterImage(playerRoleString) {
     roleText = "";
   }
 
-  // Показываем контейнер и сразу делаем текст видимым!
   imageContainer.style.display = "flex";
   imageContainer.classList.add("visible");
   roleTextElement.classList.add("visible");
   roleTextElement.style.color = "white";
   roleTextElement.textContent = "";
 
-  // Печатная машинка для "Игрок №..."
   let i = 0;
   function typeNumberText() {
-    if (i <= numberText.length) {
-      roleTextElement.textContent = numberText.slice(0, i);
+    if (i < numberText.length) {
+      roleTextElement.textContent = numberText.slice(0, i + 1);
       i++;
-      setTimeout(typeNumberText, 200);
+      setTimeout(typeNumberText, 100);
     } else {
-      // Пауза, затем плавно скрываем текст
       setTimeout(() => {
-        roleTextElement.classList.remove("visible"); // исчезает через opacity
+        roleTextElement.classList.remove("visible");
         setTimeout(() => {
-          // Показываем роль плавно
           roleTextElement.textContent = roleText;
           roleTextElement.style.color = roleText.toLowerCase().includes("импостер") ? "red" : "dodgerblue";
-          roleTextElement.classList.add("visible"); // плавно появляется
-          // Через 5 секунд скрываем весь экран
+          roleTextElement.classList.add("visible");
+
           setTimeout(() => {
             imageContainer.classList.remove("visible");
             setTimeout(() => {
               imageContainer.style.display = "none";
               document.body.removeAttribute("style");
-            }, 1000); // время transition: opacity 1s
+
+              // ✅ Сброс флага защиты
+              window._roleRevealRunning = false;
+            }, 1000);
           }, 4000);
-        }, 1000); // ждём, пока opacity дойдёт до 0 (1s из transition)
-      }, 1500); // пауза после печатной машинки
+        }, 1000);
+      }, 500);
     }
   }
+
   typeNumberText();
 }
 
