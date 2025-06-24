@@ -1,11 +1,13 @@
 const db = window.db;
+console.log("🔥 Скрипт игрока запущен!");
 
+let gameStartedHandled = false;
 let playerNumber = null;
 let canVote = true;
 window.voteCooldownTimer = null;
 let meetingSound = null;
 let deathSound = null;
-
+const sessionStartedAt = Date.now();
 document.addEventListener("click", () => {
   if (!meetingSound) {
     meetingSound = new Audio("/sounds/meeting_alert.mp3");
@@ -27,20 +29,23 @@ function formatTime(ms) {
 
 function resetAllScreens() {
   document.querySelectorAll(".screen, #hudScreen").forEach(el => {
+    // НЕ трогай imosterImage, если сейчас идёт reveal!
+    if (el.id === "imposterImage" && window._roleRevealRunning) return;
     if (el) {
       el.style.display = "none";
       el.classList.remove("active", "visible");
     }
   });
 
-  // Явно скрываем импостера
+  // Не скрывай имостера, если сейчас анимация reveal!
   const imposterImage = document.getElementById("imposterImage");
-  if (imposterImage) {
+  if (imposterImage && !window._roleRevealRunning) {
     imposterImage.classList.remove("visible");
     imposterImage.style.opacity = "0";
     imposterImage.style.pointerEvents = "none";
   }
 }
+
 
 
 function handlePlayerDeletion() {
@@ -155,6 +160,9 @@ db.ref("game/roleRevealStart").on("value", snap => {
   const start = snap.val();
   if (!start || roleRevealHandled) return;
 
+  // Блокируем повторное отображение роли, если событие старше входа на страницу
+  if (start < sessionStartedAt) return;
+
   roleRevealHandled = true; // блок повторного срабатывания
 
   const now = Date.now();
@@ -242,8 +250,9 @@ function initHUD(number) {
     const gameRef = db.ref("game");
     const handleGameChange = (snap) => {
       const game = snap.val();
-      if (game?.state === "started") {
-
+      // Запускать только если не запускали ещё и state === "started"
+      if (game?.state === "started" && !gameStartedHandled) {
+        gameStartedHandled = true;
         db.ref("players/" + number).once("value").then(snap => {
           const player = snap.val();
           if (player.joinedAt > game.startedAt) {
@@ -253,12 +262,14 @@ function initHUD(number) {
           }
         });
       }
+      // Если игра не в "started", сбрасываем флаг
+      if (game?.state !== "started") {
+        gameStartedHandled = false;
+      }
     };
-
     gameRef.on("value", handleGameChange);
   });
 }
-
 
 function startGameSequence(game, playerRef) {
   const countdownScreen = document.getElementById("countdownScreen");
@@ -268,9 +279,12 @@ function startGameSequence(game, playerRef) {
 
   const waitingScreen = document.getElementById("waitingScreen");
   if (waitingScreen) waitingScreen.style.display = "none";
+
+  // Показываем countdownScreen
   if (countdownScreen) {
     countdownScreen.classList.add("active");
     countdownScreen.style.display = "flex";
+    console.log("Показываем countdownScreen");
   }
   if (countdownNumber) countdownNumber.innerText = "Скоро узнаешь свою роль...";
 
@@ -288,16 +302,21 @@ function startGameSequence(game, playerRef) {
         db.ref("players/" + playerNumber + "/role").once("value", snap => {
           const role = snap.val();
           if (roleText) roleText.innerText = role === "imposter" ? "🟥 Ты ИМПОСТЕР!" : "🟦 Ты мирный.";
-          if (roleScreen) roleScreen.classList.add("active");
+          if (roleScreen) {
+            roleScreen.classList.add("active");
+            console.log("Показываем roleScreen");
+          }
           setTimeout(() => {
             if (roleScreen) roleScreen.classList.remove("active");
             showHUD(playerRef);
+            console.log("Показываем HUD после собрания");
           }, 2000);
         });
       }
     }, 1000);
   }, 3000);
 }
+
 
 function showHUD(playerRef) {
   const hudScreen = document.getElementById("hudScreen");
@@ -488,25 +507,23 @@ window.db.ref("meetings").on("value", snap => {
   }
 });
 
+
+
 // ==================== Глобальный слушатель кика ====================
 let lastKickedShownAt = 0;
-db.ref("game/lastKicked").on("value", snap => {
+
+db.ref("game/lastKicked").on("value", (snap) => {
   const data = snap.val();
-  if (!data) return;
-  if (data.shownAt && data.shownAt !== lastKickedShownAt) {
-    lastKickedShownAt = data.shownAt;
-    document.getElementById("hudScreen").style.display = "none";
-    document.getElementById("meetingSection").style.display = "none";
-    showImposterImage(
-      `Игрок №${data.number} — ${data.role === "imposter" ? "Импостер" : "Мирный"}`
-    );
-    setTimeout(() => {
-      document.getElementById("hudScreen").style.display = "block";
-    }, 6500);
-  }
+  if (!data || !data.number || !data.role || !data.shownAt) return;
+
+  if (data.shownAt <= lastKickedShownAt) return;
+  lastKickedShownAt = data.shownAt;
+
+  const playerRoleStr = `Игрок №${data.number} — ${data.role === "imposter" ? "Импостер" : "Мирный"}`;
+  console.log("🎬 Показываем исключённого:", playerRoleStr);
+  setTimeout(() => showImposterImage(playerRoleStr), 0);
 });
 
-// ==================== Подсчёт голосов ====================
 function countVotes(meeting) {
   const votes = meeting.votes || {};
   let kick = 0, skip = 0;
@@ -514,30 +531,43 @@ function countVotes(meeting) {
     if (v === "kick") kick++;
     else if (v === "skip") skip++;
   });
+
   const kickCount = document.getElementById("meetingKickCount");
   const skipCount = document.getElementById("meetingSkipCount");
   if (kickCount) kickCount.innerText = `Кик: ${kick}`;
   if (skipCount) skipCount.innerText = `Оставить: ${skip}`;
+
   if (kick > skip && meeting.target) {
     const kickedPlayer = meeting.target;
     db.ref("players/" + kickedPlayer + "/role").once("value", snap => {
       const playerRole = snap.val();
-      // отмечаем игрока как убитого
+
+      // 🟥 Убиваем игрока
       db.ref("players/" + kickedPlayer).update({ status: "dead" });
-      // обновляем поле lastKicked
+
+      // 🟡 Сохраняем lastKicked в game
       db.ref("game/lastKicked").set({
         number: kickedPlayer,
         role: playerRole,
         shownAt: Date.now()
       });
-      // Локальный вызов showImposterImage УДАЛЁН!
+
+      // ✅ Удаляем через 5 секунд, чтобы не повторно не показалось
+      setTimeout(() => {
+        db.ref("game/lastKicked").remove();
+      }, 5000);
     });
   }
+  
 }
+
+
+
+
 
 // ==================== Показ изображения роли (с печатной машинкой!) ====================
 function showImposterImage(playerRoleString) {
-  // ✅ Защита от повторного запуска
+  console.log("🔔 Показ роли запускается:", playerRoleString);
   if (window._roleRevealRunning) return;
   window._roleRevealRunning = true;
 
@@ -572,6 +602,7 @@ function showImposterImage(playerRoleString) {
       setTimeout(() => {
         roleTextElement.classList.remove("visible");
         setTimeout(() => {
+          // ✅ Вот тут было roleStr — заменили на roleText
           roleTextElement.textContent = roleText;
           roleTextElement.style.color = roleText.toLowerCase().includes("импостер") ? "red" : "dodgerblue";
           roleTextElement.classList.add("visible");
@@ -581,8 +612,6 @@ function showImposterImage(playerRoleString) {
             setTimeout(() => {
               imageContainer.style.display = "none";
               document.body.removeAttribute("style");
-
-              // ✅ Сброс флага защиты
               window._roleRevealRunning = false;
             }, 1000);
           }, 4000);
@@ -593,6 +622,7 @@ function showImposterImage(playerRoleString) {
 
   typeNumberText();
 }
+
 
 
 // === Дальше идут кнопки и голоса (можно не менять)
