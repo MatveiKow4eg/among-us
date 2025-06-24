@@ -535,7 +535,7 @@ db.ref("game/lastKicked").on("value", (snap) => {
   if (data.number === "skip") {
     playerRoleStr = "Никто не был исключён";
   } else {
-    playerRoleStr = `Игрок №${data.number} ${data.role === "imposter" ? "Импостер" : "Мирный"}`;
+    playerRoleStr = `Игрок №${data.number} — ${data.role === "imposter" ? "Импостер" : "Мирный"}`;
   }
   showImposterImage(playerRoleStr, { timeout: 2500 });
 });
@@ -618,9 +618,15 @@ function showImposterImage(playerRoleString) {
       setTimeout(() => {
         roleTextElement.classList.remove("visible");
         setTimeout(() => {
-          // ✅ Вот тут было roleStr — заменили на roleText
+          // Теперь здесь цвет будет красным для "Импостер"
           roleTextElement.textContent = roleText;
-          roleTextElement.style.color = roleText.toLowerCase().includes("импостер") ? "red" : "dodgerblue";
+          if (roleText.toLowerCase().includes("импостер")) {
+            roleTextElement.style.color = "red";
+          } else if (roleText.toLowerCase().includes("мирный")) {
+            roleTextElement.style.color = "dodgerblue";
+          } else {
+            roleTextElement.style.color = "white";
+          }
           roleTextElement.classList.add("visible");
 
           setTimeout(() => {
@@ -638,6 +644,7 @@ function showImposterImage(playerRoleString) {
 
   typeNumberText();
 }
+
 
 
 
