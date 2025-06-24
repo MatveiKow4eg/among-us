@@ -29,10 +29,19 @@ function resetAllScreens() {
   document.querySelectorAll(".screen, #hudScreen").forEach(el => {
     if (el) {
       el.style.display = "none";
-      el.classList.remove("active");
+      el.classList.remove("active", "visible");
     }
   });
+
+  // Явно скрываем импостера
+  const imposterImage = document.getElementById("imposterImage");
+  if (imposterImage) {
+    imposterImage.classList.remove("visible");
+    imposterImage.style.opacity = "0";
+    imposterImage.style.pointerEvents = "none";
+  }
 }
+
 
 function handlePlayerDeletion() {
   localStorage.removeItem("playerNumber");
@@ -78,11 +87,17 @@ function monitorHudOnlinePlayers() {
 // ==================== Сброс к ожиданию ====================
 function handleGameResetToWaiting() {
   resetAllScreens();
+
   const waitingScreen = document.getElementById("waitingScreen");
-  if (waitingScreen) waitingScreen.style.display = "flex";
-  localStorage.removeItem("voted");
-  monitorOnlinePlayers();
+  if (waitingScreen) {
+    waitingScreen.style.display = "flex";
+    waitingScreen.classList.add("active");
+  }
+
+
+  alert("Игра была остановлена. Ожидайте начала новой игры.");
 }
+
 
 // ==================== Старт ====================
 document.addEventListener("DOMContentLoaded", () => {
@@ -129,7 +144,67 @@ if (isNaN(num) || num < 1 || num > 60) {
   }
 });
 
+
+
 // ==================== Основная инициализация HUD ====================
+let isResetting = false;
+let roleRevealHandled = false; // Защита от повторного срабатывания
+
+// 🔁 Реакция на запуск roleRevealStart (показ роли через задержку)
+db.ref("game/roleRevealStart").on("value", snap => {
+  const start = snap.val();
+  if (!start || roleRevealHandled) return;
+
+  roleRevealHandled = true; // блок повторного срабатывания
+
+  const now = Date.now();
+  const delay = Math.max(0, start - now);
+
+  const showRole = () => {
+    const number = localStorage.getItem("playerNumber");
+    if (!number) return;
+
+    db.ref("players/" + number).once("value").then(snap => {
+      const data = snap.val();
+      if (!data || !data.role) return;
+
+      const roleString = `Игрок №${number} — ${data.role === "imposter" ? "Импостер" : "Мирный"}`;
+      showImposterImage(roleString);
+    });
+  };
+
+  if (delay > 0) {
+    setTimeout(showRole, delay);
+  } else {
+    showRole();
+  }
+});
+
+// 🔁 Обработка возврата на экран ожидания при остановке игры
+let lastState = null;
+
+db.ref("game/state").on("value", snap => {
+  const state = snap.val();
+  lastState = state;
+
+  if (state === "waiting") {
+    // Показываем экран ожидания, если игрок зарегистрирован
+    const number = localStorage.getItem("playerNumber");
+    if (number) {
+      resetAllScreens();
+      const waitingScreen = document.getElementById("waitingScreen");
+      if (waitingScreen) waitingScreen.style.display = "flex";
+      monitorOnlinePlayers?.();
+    } else {
+      // Если игрок не зарегистрирован, скидываем на форму входа
+      handleGameResetToWaiting();
+    }
+  }
+});
+
+
+
+// ==================== HUD после регистрации ====================
 function initHUD(number) {
   playerNumber = number;
   const playerRef = db.ref("players/" + number);
@@ -161,32 +236,11 @@ function initHUD(number) {
       }
     });
 
-      db.ref("game/roleRevealStart").on("value", snap => {
-    const start = snap.val();
-    if (!start) return;
-
-    const now = Date.now();
-    const delay = Math.max(0, start - now);
-
-    setTimeout(() => {
-      db.ref("players/" + number).once("value").then(snap => {
-        const data = snap.val();
-        if (!data || !data.role) return;
-        const roleString = `Игрок №${number} — ${data.role === "imposter" ? "Импостер" : "Мирный"}`;
-        showImposterImage(roleString);
-      });
-    }, delay);
-  });
-
-    // обработка сброса
-    db.ref("game/state").on("value", snap => {
-      if (snap.val() === "waiting") handleGameResetToWaiting();
-    });
-
-    db.ref("game").on("value", snap => {
+    const gameRef = db.ref("game");
+    const handleGameChange = (snap) => {
       const game = snap.val();
       if (game?.state === "started") {
-        db.ref("game").off();
+
         db.ref("players/" + number).once("value").then(snap => {
           const player = snap.val();
           if (player.joinedAt > game.startedAt) {
@@ -196,7 +250,9 @@ function initHUD(number) {
           }
         });
       }
-    });
+    };
+
+    gameRef.on("value", handleGameChange);
   });
 }
 
