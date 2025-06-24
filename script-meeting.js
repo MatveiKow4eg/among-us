@@ -3,6 +3,19 @@ const db = window.db;
 let playerNumber = null;
 let canVote = true;
 window.voteCooldownTimer = null;
+let meetingSound = null;
+let deathSound = null;
+
+document.addEventListener("click", () => {
+  if (!meetingSound) {
+    meetingSound = new Audio("/sounds/meeting_alert.mp3");
+    meetingSound.load();
+  }
+  if (!deathSound) {
+    deathSound = new Audio("/sounds/death_alert.mp3");
+    deathSound.load();
+  }
+});
 
 // ==================== Утилиты ====================
 function formatTime(ms) {
@@ -77,12 +90,11 @@ document.addEventListener("DOMContentLoaded", () => {
   if (registerBtn) {
     registerBtn.onclick = async () => {
       const input = document.getElementById("playerInput");
-      const num = input.value.trim();
-      if (!/^[1-9][0-9]?$|^60$/.test(num)) {
-        alert("Введите номер от 1 до 60");
-        return;
-      }
-
+     const num = parseInt(input.value.trim());
+if (isNaN(num) || num < 1 || num > 60) {
+  alert("Введите номер от 1 до 60");
+  return;
+}
       // Проверка уникальности номера в базе:
       try {
         const snap = await db.ref("players/" + num).once("value");
@@ -138,6 +150,35 @@ function initHUD(number) {
       if (!snap.exists()) handlePlayerDeletion();
     });
 
+    let playerAlive = true;
+    db.ref("players/" + number).on("value", snap => {
+      const data = snap.val();
+      if (!data) return;
+
+      if (data.status === "dead" && playerAlive) {
+        playerAlive = false;
+        if (deathSound) deathSound.play();
+      }
+    });
+
+      db.ref("game/roleRevealStart").on("value", snap => {
+    const start = snap.val();
+    if (!start) return;
+
+    const now = Date.now();
+    const delay = Math.max(0, start - now);
+
+    setTimeout(() => {
+      db.ref("players/" + number).once("value").then(snap => {
+        const data = snap.val();
+        if (!data || !data.role) return;
+        const roleString = `Игрок №${number} — ${data.role === "imposter" ? "Импостер" : "Мирный"}`;
+        showImposterImage(roleString);
+      });
+    }, delay);
+  });
+
+    // обработка сброса
     db.ref("game/state").on("value", snap => {
       if (snap.val() === "waiting") handleGameResetToWaiting();
     });
@@ -158,6 +199,7 @@ function initHUD(number) {
     });
   });
 }
+
 
 function startGameSequence(game, playerRef) {
   const countdownScreen = document.getElementById("countdownScreen");
@@ -338,20 +380,30 @@ window.db.ref("meetings").on("value", snap => {
     hudScreen.style.display = "none";
     meetingSection.style.display = "block";
     meetingTarget.innerText = `Цель: Игрок №${m.target}`;
-    if (meetingTimer && m.startedAt) {
-      if (window.meetingTimerInterval) clearInterval(window.meetingTimerInterval);
-      function updateMeetingTimerDisplay() {
-        const now = Date.now();
-        const secondsLeft = Math.max(0, 20 - Math.floor((now - m.startedAt) / 1000));
-        meetingTimer.innerText = secondsLeft;
-        if (secondsLeft <= 0 && window.meetingTimerInterval) {
-          clearInterval(window.meetingTimerInterval);
-          countVotes(m);
-        }
-      }
-      updateMeetingTimerDisplay();
-      window.meetingTimerInterval = setInterval(updateMeetingTimerDisplay, 1000);
+    if (m && m.active && m.timerSet === false) {
+  if (meetingSound) meetingSound.play();
+}
+   if (meetingTimer && m.startedAt) {
+  if (window.meetingTimerInterval) clearInterval(window.meetingTimerInterval);
+
+  const MEETING_DURATION = 30000; // в миллисекундах (30 сек)
+
+  function updateMeetingTimerDisplay() {
+    const now = Date.now();
+    const elapsed = now - m.startedAt;
+    const remaining = Math.max(0, MEETING_DURATION - elapsed);
+    const seconds = (remaining / 1000).toFixed(3); // округление до 1 знака после запятой
+    meetingTimer.innerText = seconds;
+
+    if (remaining <= 0 && window.meetingTimerInterval) {
+      clearInterval(window.meetingTimerInterval);
+      countVotes(m); // Завершаем голосование
     }
+  }
+
+  updateMeetingTimerDisplay(); // запустить сразу
+  window.meetingTimerInterval = setInterval(updateMeetingTimerDisplay, 100); // обновляем 10 раз/сек
+}
     window.db.ref("meetings/votes").on("value", (snapshot) => {
       const votes = snapshot.val() || {};
       let kick = 0, skip = 0;
@@ -426,11 +478,14 @@ function countVotes(meeting) {
 
 // ==================== Показ изображения роли (с печатной машинкой!) ====================
 function showImposterImage(playerRoleString) {
+  // ✅ Защита от повторного запуска
+  if (window._roleRevealRunning) return;
+  window._roleRevealRunning = true;
+
   const imageContainer = document.getElementById('imposterImage');
   const roleTextElement = document.getElementById('imposterRoleText');
   if (!imageContainer || !roleTextElement) return;
 
-  // Парсим номер и роль
   let numberText = "";
   let roleText = "";
   const match = playerRoleString.match(/^Игрок №(\d+)\s*—\s*(Импостер|Мирный)$/i);
@@ -442,40 +497,41 @@ function showImposterImage(playerRoleString) {
     roleText = "";
   }
 
-  // Показываем контейнер и сразу делаем текст видимым!
   imageContainer.style.display = "flex";
   imageContainer.classList.add("visible");
   roleTextElement.classList.add("visible");
   roleTextElement.style.color = "white";
   roleTextElement.textContent = "";
 
-  // Печатная машинка для "Игрок №..."
   let i = 0;
   function typeNumberText() {
-    if (i <= numberText.length) {
-      roleTextElement.textContent = numberText.slice(0, i);
+    if (i < numberText.length) {
+      roleTextElement.textContent = numberText.slice(0, i + 1);
       i++;
-      setTimeout(typeNumberText, 200);
+      setTimeout(typeNumberText, 100);
     } else {
-      // Пауза, затем плавно скрываем текст
       setTimeout(() => {
-        roleTextElement.classList.remove("visible"); // исчезает через opacity
+        roleTextElement.classList.remove("visible");
         setTimeout(() => {
-          // Показываем роль плавно
           roleTextElement.textContent = roleText;
           roleTextElement.style.color = roleText.toLowerCase().includes("импостер") ? "red" : "dodgerblue";
-          roleTextElement.classList.add("visible"); // плавно появляется
-          // Через 5 секунд скрываем весь экран
+          roleTextElement.classList.add("visible");
+
           setTimeout(() => {
             imageContainer.classList.remove("visible");
             setTimeout(() => {
               imageContainer.style.display = "none";
-            }, 1000); // время transition: opacity 1s
+              document.body.removeAttribute("style");
+
+              // ✅ Сброс флага защиты
+              window._roleRevealRunning = false;
+            }, 1000);
           }, 4000);
-        }, 1000); // ждём, пока opacity дойдёт до 0 (1s из transition)
-      }, 1500); // пауза после печатной машинки
+        }, 1000);
+      }, 500);
     }
   }
+
   typeNumberText();
 }
 
