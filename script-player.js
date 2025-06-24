@@ -188,18 +188,21 @@ db.ref("game/state").on("value", snap => {
   lastState = state;
 
   if (state === "waiting") {
-    // Показываем экран ожидания, если игрок зарегистрирован
-    const number = localStorage.getItem("playerNumber");
-    if (number) {
-      resetAllScreens();
-      const waitingScreen = document.getElementById("waitingScreen");
-      if (waitingScreen) waitingScreen.style.display = "flex";
-      monitorOnlinePlayers?.();
-    } else {
-      // Если игрок не зарегистрирован, скидываем на форму входа
-      handleGameResetToWaiting();
+  const number = localStorage.getItem("playerNumber");
+  resetAllScreens();
+  if (number) {
+    const waitingScreen = document.getElementById("waitingScreen");
+    if (waitingScreen) waitingScreen.style.display = "flex";
+    monitorOnlinePlayers?.();
+  } else {
+    const reg = document.getElementById("registerScreen");
+    if (reg) {
+      reg.style.display = "flex";
+      reg.classList.add("active");
     }
   }
+}
+
 });
 
 
