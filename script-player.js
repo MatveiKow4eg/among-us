@@ -176,10 +176,21 @@ db.ref("game/roleRevealStart").on("value", snap => {
       const data = snap.val();
       if (!data || !data.role) return;
 
-      const roleString = `Игрок №${number} — ${data.role === "imposter" ? "Импостер" : "Мирный"}`;
-      showImposterImage(roleString);
+      // ------ Управляй только roleScreen, например ------
+      const roleScreen = document.getElementById("roleScreen");
+      const roleText = document.getElementById("roleText");
+      if (roleScreen && roleText) {
+        roleText.textContent = `Ваша роль: ${data.role === "imposter" ? "Импостер" : "Мирный"}`;
+        roleText.style.color = data.role === "imposter" ? "red" : "dodgerblue";
+        roleScreen.style.display = "flex";
+        // Закрыть через 2 секунды:
+        setTimeout(() => {
+          roleScreen.style.display = "none";
+        }, 2000);
+      }
     });
   };
+
 
   if (delay > 0) {
     setTimeout(showRole, delay);
@@ -187,6 +198,7 @@ db.ref("game/roleRevealStart").on("value", snap => {
     showRole();
   }
 });
+
 
 // 🔁 Обработка возврата на экран ожидания при остановке игры
 let lastState = null;
@@ -519,9 +531,13 @@ db.ref("game/lastKicked").on("value", (snap) => {
   if (data.shownAt <= lastKickedShownAt) return;
   lastKickedShownAt = data.shownAt;
 
-  const playerRoleStr = `Игрок №${data.number} — ${data.role === "imposter" ? "Импостер" : "Мирный"}`;
-  console.log("🎬 Показываем исключённого:", playerRoleStr);
-  setTimeout(() => showImposterImage(playerRoleStr), 0);
+  let playerRoleStr;
+  if (data.number === "skip") {
+    playerRoleStr = "Никто не был исключён";
+  } else {
+    playerRoleStr = `Игрок №${data.number} был исключён — роль: ${data.role === "imposter" ? "Импостер" : "Мирный"}`;
+  }
+  showImposterImage(playerRoleStr, { timeout: 2500 });
 });
 
 function countVotes(meeting) {
