@@ -337,7 +337,7 @@ button:hover {
 }
 
 .screen {
-  display: none;
+  display: none !important;
   position: fixed;
   inset: 0;
   justify-content: center;
@@ -349,7 +349,7 @@ button:hover {
 }
 
 .screen.active {
-  display: flex;
+  display: flex !important;
 }
 
 @media screen and (max-width: 480px) {
@@ -459,7 +459,7 @@ button:hover {
   justify-content: center;
   align-items: center;
   text-align: center;
-  opacity: 0;
+    opacity: 1 !important;
   pointer-events: none;
   transition: opacity 1s ease;
 }
@@ -491,6 +491,7 @@ button:hover {
   text-align: center;
   opacity: 0;
   transition: opacity 1s ease;
+   z-index: 9999 !important;
 }
 
 #imposterRoleText.visible {
