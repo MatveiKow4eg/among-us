@@ -2,27 +2,164 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>КОВЧЕГ — Админ</title>
   <style>
-    body { background: #0d0d1a; color: white; font-family: sans-serif; padding: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { padding: 10px; border: 1px solid #444; text-align: center; }
-    button { padding: 8px 14px; margin: 5px; cursor: pointer; }
-    h2 { color: #fff; }
-    #startGameBtn { background-color: #28a745; color: white; font-weight: bold; font-size: 16px; }
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background-color: #0d0d1a;
+      color: #fff;
+      display: flex;
+      height: 100vh;
+    }
+
+    .sidebar {
+      width: 260px;
+      padding: 20px;
+      background-color: #111;
+      box-shadow: 2px 0 8px rgba(0,0,0,0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .sidebar h2 {
+      font-size: 1.3em;
+      margin-bottom: 10px;
+    }
+
+    .status-label {
+      font-size: 0.95em;
+      margin-bottom: 10px;
+    }
+
+    .status-label span {
+      font-weight: bold;
+      color: #00ff88;
+    }
+
+    .sidebar button {
+      padding: 10px;
+      font-size: 0.95em;
+      font-weight: bold;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #assignRolesBtn { background-color: #17a2b8; color: #fff; }
+    #startGameBtn   { background-color: #28a745; color: #fff; }
+    #stopGameBtn    { background-color: #ffc107; color: #000; }
+    #clearPlayersBtn { background-color: #6c757d; color: #fff; margin-top: auto; }
+
+    .main {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .top-bar button {
+      background-color: #007bff;
+      color: white;
+      padding: 8px 14px;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+    }
+
+    #playersList {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 10px;
+    }
+
+    .player-entry {
+      background: #1a1a2e;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 0.9em;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .player-buttons {
+      display: flex;
+      gap: 4px;
+    }
+
+    .player-buttons button {
+      flex: 1;
+      padding: 5px;
+      font-size: 0.8em;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      background-color: #444;
+      color: #fff;
+    }
+
+    .player-buttons button:hover {
+      opacity: 0.8;
+    }
+
+    @media (max-width: 800px) {
+      .sidebar {
+        width: 100%;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: space-around;
+        align-items: center;
+      }
+      .main {
+        padding-top: 100px;
+      }
+    }
   </style>
 </head>
 <body>
-  <h2>Панель администратора</h2>
-  <p><strong>Состояние игры:</strong> <span id="gameStateLabel">Загрузка...</span></p>
-  <p id="votingTimer" style="font-weight: bold; color: #0ff; margin-bottom: 10px;"></p>
+
+  <div class="sidebar">
+    <h2>Панель администратора</h2>
+    <div class="status-label">
+      <p>Состояние: <span id="gameStateLabel">...</span></p>
+      <p id="votingTimer">⏳</p>
+    </div>
+    <div id="imposterControlBlock">
+  <input type="number" id="imposterCountInput" placeholder="Кол-во импостеров" min="1" max="60" style="padding: 6px; margin-bottom: 10px; width: 100%;" />
+</div>
+<div id="imposterStatusText" style="color: #fff; font-weight: bold; margin-bottom: 10px; display: none;"></div>
+    <button id="assignRolesBtn">🎭 Назначить роли</button>
+    <button id="startGameBtn">🚀 Начать игру</button>
+    <button id="stopGameBtn">🛑 Остановить игру</button>
+    <button id="clearPlayersBtn">🧹 Очистить всех</button>
+  </div>
+
+  <div class="main">
+    <div class="top-bar">
+  <div style="display: flex; gap: 10px; align-items: center;">
+    <h3 style="margin: 0;">Игроки</h3>
+    <select id="playerFilter" style="padding: 5px; border-radius: 4px;">
+      <option value="all">Все</option>
+      <option value="alive">Живые</option>
+      <option value="dead">Мёртвые</option>
+      <option value="imposter">Импостеры</option>
+    </select>
+  </div>
   <a href="voting.html" target="_blank"><button>🗳 Голосование</button></a>
-  <button id="assignRolesBtn" style="background:#17a2b8; color:white;">🎭 Назначить роли</button>
-  <button id="startGameBtn">🚀 Начать игру</button>
-  <button id="stopGameBtn" style="background:#ffc107; color:black;">🛑 Остановить игру</button>
-  <button id="clearPlayersBtn" style="background:#6c757d; color:white;">🧹 Очистить всех игроков</button>
-  <div id="playersList">Загрузка игроков...</div>
+</div>
+
+    <div id="playersList">Загрузка...</div>
+  </div>
+
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
   <script src="firebase-init.js"></script>
