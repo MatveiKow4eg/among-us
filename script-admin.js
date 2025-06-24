@@ -43,23 +43,27 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Кнопка запуска игры
-  startBtn.addEventListener("click", () => {
-    db.ref("players").once("value").then((snap) => {
-      const ids = Object.keys(snap.val() || {});
-      const shuffled = ids.sort(() => 0.5 - Math.random()).slice(0, 10);
-      const updates = {};
+startBtn.addEventListener("click", () => {
+  db.ref("players").once("value").then((snap) => {
+    const ids = Object.keys(snap.val() || {});
+    const shuffled = ids.sort(() => 0.5 - Math.random()).slice(0, 10);
+    const updates = {};
 
-      ids.forEach(id => {
-        updates[`players/${id}/role`] = shuffled.includes(id) ? "imposter" : "crew";
-      });
-
-      const now = Date.now();
-      updates["game/state"] = "started";
-      updates["game/startedAt"] = now;
-
-      return db.ref().update(updates);
+    ids.forEach(id => {
+      updates[`players/${id}/role`] = shuffled.includes(id) ? "imposter" : "crew";
     });
+
+    const now = Date.now();
+    updates["game/state"] = "started";
+    updates["game/startedAt"] = now;
+
+    // 👇 Добавляем старт времени показа ролей
+    updates["game/roleRevealStart"] = now + 1000; // можно +1000, чтобы дать 1 секунду на прогрузку
+
+    return db.ref().update(updates);
   });
+});
+
 
   // Кнопка остановки игры
   stopBtn.addEventListener("click", () => {
