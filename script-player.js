@@ -3,6 +3,19 @@ const db = window.db;
 let playerNumber = null;
 let canVote = true;
 window.voteCooldownTimer = null;
+let meetingSound = null;
+let deathSound = null;
+
+document.addEventListener("click", () => {
+  if (!meetingSound) {
+    meetingSound = new Audio("/sounds/meeting_alert.mp3");
+    meetingSound.load();
+  }
+  if (!deathSound) {
+    deathSound = new Audio("/sounds/death_alert.mp3");
+    deathSound.load();
+  }
+});
 
 // ==================== Утилиты ====================
 function formatTime(ms) {
@@ -137,6 +150,19 @@ function initHUD(number) {
       if (!snap.exists()) handlePlayerDeletion();
     });
 
+    // ✅ ВОТ ЗДЕСЬ добавляем отслеживание смерти
+    let playerAlive = true;
+    db.ref("players/" + number).on("value", snap => {
+      const data = snap.val();
+      if (!data) return;
+
+      if (data.status === "dead" && playerAlive) {
+        playerAlive = false;
+        if (deathSound) deathSound.play();
+      }
+    });
+
+    // обработка сброса
     db.ref("game/state").on("value", snap => {
       if (snap.val() === "waiting") handleGameResetToWaiting();
     });
@@ -157,6 +183,7 @@ function initHUD(number) {
     });
   });
 }
+
 
 function startGameSequence(game, playerRef) {
   const countdownScreen = document.getElementById("countdownScreen");
@@ -337,6 +364,9 @@ window.db.ref("meetings").on("value", snap => {
     hudScreen.style.display = "none";
     meetingSection.style.display = "block";
     meetingTarget.innerText = `Цель: Игрок №${m.target}`;
+    if (m && m.active && m.timerSet === false) {
+  if (meetingSound) meetingSound.play();
+}
    if (meetingTimer && m.startedAt) {
   if (window.meetingTimerInterval) clearInterval(window.meetingTimerInterval);
 
