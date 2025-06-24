@@ -180,7 +180,7 @@ db.ref("game/roleRevealStart").on("value", snap => {
       const roleScreen = document.getElementById("roleScreen");
       const roleText = document.getElementById("roleText");
       if (roleScreen && roleText) {
-        roleText.textContent = `Ваша роль: ${data.role === "imposter" ? "Импостер" : "Мирный"}`;
+
         roleText.style.color = data.role === "imposter" ? "red" : "dodgerblue";
         roleScreen.style.display = "flex";
         // Закрыть через 2 секунды:
@@ -535,7 +535,7 @@ db.ref("game/lastKicked").on("value", (snap) => {
   if (data.number === "skip") {
     playerRoleStr = "Никто не был исключён";
   } else {
-    playerRoleStr = `Игрок №${data.number} был исключён — роль: ${data.role === "imposter" ? "Импостер" : "Мирный"}`;
+    playerRoleStr = `Игрок №${data.number} ${data.role === "imposter" ? "Импостер" : "Мирный"}`;
   }
   showImposterImage(playerRoleStr, { timeout: 2500 });
 });
