@@ -62,29 +62,26 @@
   </div>
 
   <div class="screen" id="hudScreen">
-    <div class="hud-card">
-      <div class="player-info">
-        <img id="playerAvatar" src="avatars/red.webp" alt="Аватар" class="player-avatar" />
-        <div>
-          <div class="player-label">Игрок №<span id="playerNumber">1</span></div>
-          <div id="playerStatus" class="player-status">Жив</div>
-          <div id="hudOnlineCount" style="font-size: 0.85em; color: #b0b8d8; margin-top: 2px;">
-            Онлайн: <span id="hudOnlineNumber">0</span>
-          </div>
+  <div class="hud-card" id="playerCard">
+    <div class="player-info">
+      <img id="playerAvatar" src="avatars/red.webp" alt="Аватар" class="player-avatar" />
+      <div>
+        <div class="player-label">Игрок №<span id="playerNumber">1</span></div>
+        <div id="playerStatus" class="player-status">Жив</div>
+        <div id="hudOnlineCount" style="font-size: 0.85em; color: #b0b8d8; margin-top: 2px;">
+          Онлайн: <span id="hudOnlineNumber">0</span>
         </div>
       </div>
     </div>
-    <div class="hud-card vote-section">
-      <div class="section-title">ПОДОЗРЕВАЮ</div>
-      <button id="voteBtn" class="hud-btn">Голосовать</button>
-      <span id="cooldownTimer"></span>
-      <span id="myVoteInfo" style="display:block; margin-top:10px; color:#fff; font-size:1.1em;"></span>
-    </div>
-    <div class="hud-card">
-      <button id="roleButton" class="hud-btn">Посмотреть свою роль</button>
-      <div id="roleDisplay" class="role-popup" style="display: none;"></div>
-    </div>
   </div>
+  <div class="hud-card vote-section">
+    <div class="section-title">ПОДОЗРЕВАЮ</div>
+    <button id="voteBtn" class="hud-btn">Голосовать</button>
+    <span id="cooldownTimer"></span>
+    <span id="myVoteInfo" style="display:block; margin-top:10px; color:#fff; font-size:1.1em;"></span>
+  </div>
+</div>
+
 
   <div class="screen" id="meetingSection" style="z-index:1000; left:50%; top:50%; transform:translate(-50%,-50%);">
     <div class="section-title">! С О Б Р А Н И Е !</div>
@@ -114,6 +111,20 @@
   <div class="screen" id="imposterImage">
     <div id="imposterRoleText" style="font-weight: bold;"></div>
   </div>
+<div class="screen" id="imposterHUD">
+  <div class="hud-card" style="text-align:center;">
+    <h2>Импостер</h2>
+
+    <div id="imposterTools">
+      <button id="killBtn" class="hud-btn kill-btn" style="background:#ff3131; color:#fff; margin-bottom:10px;">Убить игрока</button> 
+      <div id="killCooldown" style="margin-top:10px; color:#ff6161; font-weight:bold;"></div>
+      <div id="killLeft" style="margin-top:4px; color:#ffd700; font-size:1.1em;"></div>
+    </div>
+    <button class="hud-btn" onclick="showScreen('hudScreen')" style="margin-top:22px;">Назад</button>
+  </div>
+</div>
+
+
 
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
