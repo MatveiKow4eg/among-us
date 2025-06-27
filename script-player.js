@@ -395,6 +395,15 @@ playerRef.on("value", snap => {
     statusEl.innerText = player.status === "dead" ? "Мёртв" : "Жив";
     statusEl.classList.toggle("dead", player.status === "dead");
   }
+    if (player.status === "dead") {
+    // Скрываем/блокируем все кнопки голосования
+    const voteBtn = document.getElementById("voteBtn");
+    if (voteBtn) {
+      voteBtn.disabled = true;
+      voteBtn.style.display = "none";
+    }
+    hideVotingButtons();
+  }
   if (voteBtn) voteBtn.style.display = player.status === "dead" ? "none" : "block";
   if (taskSection) taskSection.style.display = player.role === "imposter" ? "none" : "block";
 
@@ -800,14 +809,22 @@ function showImposterImage(playerRoleString) {
 
 
 
-// === Дальше идут кнопки и голоса (можно не менять)
 function updateVotingButtons() {
   const voteKickBtn = document.getElementById("voteKickBtn");
   const voteSkipBtn = document.getElementById("voteSkipBtn");
-  if (voteKickBtn && voteSkipBtn) {
-    voteKickBtn.style.display = 'inline-block';
-    voteSkipBtn.style.display = 'inline-block';
-  }
+  // Проверяем, жив ли игрок
+  db.ref("players/" + playerNumber).once("value", snap => {
+    if (!snap.exists() || snap.val().status !== "alive") {
+      hideVotingButtons();
+      return;
+    }
+    if (voteKickBtn && voteSkipBtn) {
+      voteKickBtn.style.display = 'inline-block';
+      voteSkipBtn.style.display = 'inline-block';
+      voteKickBtn.disabled = false;
+      voteSkipBtn.disabled = false;
+    }
+  });
 }
 
 function hideVotingButtons() {
@@ -816,12 +833,21 @@ function hideVotingButtons() {
   if (voteKickBtn && voteSkipBtn) {
     voteKickBtn.style.display = "none";
     voteSkipBtn.style.display = "none";
+    voteKickBtn.disabled = true;
+    voteSkipBtn.disabled = true;
   }
 }
 
+// --- Обработчики кнопок с защитой ---
 const voteKickBtn = document.getElementById("voteKickBtn");
 if (voteKickBtn) {
-  voteKickBtn.onclick = () => {
+  voteKickBtn.onclick = async () => {
+    const snap = await db.ref("players/" + playerNumber).once("value");
+    if (!snap.exists() || snap.val().status !== "alive") {
+      alert("Мертвые не могут голосовать!");
+      hideVotingButtons();
+      return;
+    }
     db.ref(`meetings/votes/${playerNumber}`).set("kick").then(() => {
       hideVotingButtons();
     });
@@ -830,16 +856,24 @@ if (voteKickBtn) {
 
 const voteSkipBtn = document.getElementById("voteSkipBtn");
 if (voteSkipBtn) {
-  voteSkipBtn.onclick = () => {
+  voteSkipBtn.onclick = async () => {
+    const snap = await db.ref("players/" + playerNumber).once("value");
+    if (!snap.exists() || snap.val().status !== "alive") {
+      alert("Мертвые не могут голосовать!");
+      hideVotingButtons();
+      return;
+    }
     db.ref(`meetings/votes/${playerNumber}`).set("skip").then(() => {
       hideVotingButtons();
     });
   };
 }
 
+// --- Следим за митингом и состоянием голосования ---
 db.ref("meetings").on("value", (snapshot) => {
   const meetingData = snapshot.val();
   if (!meetingData) return;
+  // Обновлять только если игрок еще не голосовал
   if (meetingData.active && !(meetingData.votes && meetingData.votes[playerNumber])) {
     updateVotingButtons();
   }
@@ -852,8 +886,8 @@ db.ref("meetings/votes").on("value", (snapshot) => {
   }
 });
 
+// --- Обновление инфы о подозреваемом (без изменений) ---
 function updateMyVoteInfo() {
-  // Слушаем изменения suspicion и players
   Promise.all([
     db.ref("suspicion").once("value"),
     db.ref("players").once("value")
