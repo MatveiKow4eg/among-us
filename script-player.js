@@ -27,6 +27,13 @@ function formatTime(ms) {
   return `${String(min).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+
+function showScreen(screenId) {
+  document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById(screenId);
+  if (el) el.classList.add('active');
+}
+
 function resetAllScreens() {
   document.querySelectorAll(".screen, #hudScreen").forEach(el => {
     // НЕ трогай imosterImage, если сейчас идёт reveal!
@@ -313,7 +320,15 @@ function startGameSequence(game, playerRef) {
         }
         db.ref("players/" + playerNumber + "/role").once("value", snap => {
           const role = snap.val();
-          if (roleText) roleText.innerText = role === "imposter" ? "🟥 Ты ИМПОСТЕР!" : "🟦 Ты мирный.";
+          if (roleText) {
+  if (role === "imposter") {
+    roleText.innerHTML = "🟥 Ты ИМПОСТЕР!<br><br><b>СЕКРЕТ:</b> если нажмёшь на свою иконку <img src='avatars/red.webp' style='height:1.5em;vertical-align:middle;'> появятся дополнительные функции";
+  } else {
+    roleText.innerHTML = "🟦 Ты мирный.";
+  }
+}
+
+
           if (roleScreen) {
             roleScreen.classList.add("active");
             console.log("Показываем roleScreen");
@@ -322,21 +337,19 @@ function startGameSequence(game, playerRef) {
             if (roleScreen) roleScreen.classList.remove("active");
             showHUD(playerRef);
             console.log("Показываем HUD после собрания");
-          }, 2000);
+          }, 4000);
         });
       }
-    }, 1000);
+    }, 2000);
   }, 3000);
 }
 
 
 function showHUD(playerRef) {
   const hudScreen = document.getElementById("hudScreen");
-  const roleButton = document.getElementById("roleButton");
   const playerNumberEl = document.getElementById("playerNumber");
   const playerAvatar = document.getElementById("playerAvatar");
   if (hudScreen) hudScreen.style.display = "block";
-  if (roleButton) roleButton.style.display = "block";
   if (playerNumberEl) playerNumberEl.innerText = playerNumber;
   if (playerAvatar) playerAvatar.src = `avatars/${['red','blue','orange','black','white','pink'][(playerNumber - 1) % 6]}.webp`;
   monitorHudOnlinePlayers(); // Показываем онлайн прямо в HUD!
@@ -344,15 +357,16 @@ function showHUD(playerRef) {
   checkVotingWindow();
   updateMyVoteInfo();
   db.ref("suspicion").on("value", () => updateMyVoteInfo());
-db.ref("players").on("value", () => updateMyVoteInfo());
+  db.ref("players").on("value", () => updateMyVoteInfo());
 }
-
 // ==================== UI ====================
 function setupPlayerUI(playerRef) {
   const voteBtn = document.getElementById("voteBtn");
   const statusEl = document.getElementById("playerStatus");
   const taskSection = document.querySelector(".tasks-section");
   const meetingSection = document.getElementById("meetingSection");
+
+  let lastRole = null;
 
   // Функция для переключения фона
   function changeBackground(isMeetingActive) {
@@ -373,83 +387,213 @@ function setupPlayerUI(playerRef) {
     }
   });
 
-  playerRef.on("value", snap => {
-    const player = snap.val();
-    if (!player) return;
-    if (statusEl) {
-      statusEl.innerText = player.status === "dead" ? "Мёртв" : "Жив";
-      statusEl.classList.toggle("dead", player.status === "dead");
-    }
-    if (voteBtn) voteBtn.style.display = player.status === "dead" ? "none" : "block";
-    if (taskSection) taskSection.style.display = player.role === "imposter" ? "none" : "block";
-  });
 
-  const roleButton = document.getElementById("roleButton");
-  if (roleButton) {
-    roleButton.onclick = () => {
-      db.ref("players/" + playerNumber + "/role").once("value", snap => {
-        const role = snap.val();
-        const roleDisplay = document.getElementById("roleDisplay");
-        if (roleDisplay) {
-          roleDisplay.innerText = role === "imposter" ? "🟥 Ты ИМПОСТЕР!" : "🟦 Ты мирный.";
-          roleDisplay.style.display = "block";
-          setTimeout(() => roleDisplay.style.display = "none", 2000);
-        }
-      });
-    };
+playerRef.on("value", snap => {
+  const player = snap.val();
+  if (!player) return;
+  if (statusEl) {
+    statusEl.innerText = player.status === "dead" ? "Мёртв" : "Жив";
+    statusEl.classList.toggle("dead", player.status === "dead");
+  }
+  if (voteBtn) voteBtn.style.display = player.status === "dead" ? "none" : "block";
+  if (taskSection) taskSection.style.display = player.role === "imposter" ? "none" : "block";
+
+  // 👇 Исправленный блок: ставим кулдаун при назначении роли
+  if (
+    player.role === "imposter" &&
+    lastRole !== "imposter" &&                    // только если роль стала импостером СЕЙЧАС
+    typeof player.killAvailableAt === "undefined" // и killAvailableAt еще не задан
+  ) {
+    db.ref("game/startedAt").once("value", snap2 => {
+      const startedAt = snap2.val() || Date.now();
+      const firstKillAvailableAt = startedAt + 60 * 1000; // через минуту после старта
+      playerRef.update({ killAvailableAt: firstKillAvailableAt, killsLeft: KILL_LIMIT });
+    });
   }
 
-  if (voteBtn) voteBtn.onclick = () => {
-    if (!canVote) return;
-    const target = prompt("На кого ты подозреваешь (1–60)?");
-    if (!target || isNaN(target) || target < 1 || target > 60 || Number(target) === Number(playerNumber)) {
-      return alert("Некорректный выбор");
+  lastRole = player.role; 
+
+  enableImposterHUD(player.role, player.status);
+});
+
+
+
+if (voteBtn) voteBtn.onclick = () => {
+  if (!canVote) return;
+  const target = prompt("На кого ты подозреваешь (1–60)?");
+  if (!target || isNaN(target) || target < 1 || target > 60 || Number(target) === Number(playerNumber)) {
+    return alert("Некорректный выбор");
+  }
+  db.ref("game/startedAt").once("value", snap => {
+    const startedAt = snap.val() || 0;
+    const now = Date.now();
+    if (!startedAt || now < startedAt + 60 * 1000) {
+      alert("Голосовать можно только через минуту после старта игры!");
+      return;
     }
-    db.ref("game/startedAt").once("value", snap => {
-      const startedAt = snap.val() || 0;
-      const now = Date.now();
-      if (!startedAt || now < startedAt + 60 * 1000) {
-        alert("Голосовать можно только через минуту после старта игры!");
+    db.ref("players/" + playerNumber + "/voteCooldownUntil").once("value", snap2 => {
+      const cooldownUntil = snap2.val() || 0;
+      if (cooldownUntil && now < cooldownUntil) {
+        alert(`Голосовать можно через ${formatTime(cooldownUntil - now)}`);
         return;
       }
-      db.ref("players/" + playerNumber + "/voteCooldownUntil").once("value", snap2 => {
-        const cooldownUntil = snap2.val() || 0;
-        if (cooldownUntil && now < cooldownUntil) {
-          alert(`Голосовать можно через ${formatTime(cooldownUntil - now)}`);
+      db.ref("players/" + target + "/status").once("value", statusSnap => {
+        const status = statusSnap.val();
+        if (status !== "alive") {
+          alert("Игрок уже мёртв. Голосовать за него нельзя.");
           return;
         }
-        db.ref("players/" + target + "/status").once("value", statusSnap => {
-          const status = statusSnap.val();
-          if (status !== "alive") {
-            alert("Игрок уже мёртв. Голосовать за него нельзя.");
-            return;
-          }
-          const cooldown = 60 * 1000; // 1 минута
-          const expireAt = Date.now() + cooldown;
-          db.ref("suspicion").once("value", snap3 => {
-            const suspicion = snap3.val() || {};
-            const updates = {};
-            Object.entries(suspicion).forEach(([someTarget, voters]) => {
-              if (voters && voters[playerNumber]) {
-                updates[`suspicion/${someTarget}/${playerNumber}`] = null;
-              }
-            });
-            updates[`suspicion/${target}/${playerNumber}`] = expireAt;
-            updates[`players/${playerNumber}/voteCooldownUntil`] = expireAt;
-            db.ref().update(updates);
-            canVote = false;
-            if (voteBtn) {
-              voteBtn.disabled = true;
-              voteBtn.innerText = "Голос засчитан";
+        const cooldown = 60 * 1000; // 1 минута
+        const expireAt = Date.now() + cooldown;
+        db.ref("suspicion").once("value", snap3 => {
+          const suspicion = snap3.val() || {};
+          const updates = {};
+          Object.entries(suspicion).forEach(([someTarget, voters]) => {
+            if (voters && voters[playerNumber]) {
+              updates[`suspicion/${someTarget}/${playerNumber}`] = null;
             }
-            checkVotingWindow();
-            updateMyVoteInfo();
           });
+          updates[`suspicion/${target}/${playerNumber}`] = expireAt;
+          updates[`players/${playerNumber}/voteCooldownUntil`] = expireAt;
+          db.ref().update(updates);
+          canVote = false;
+          if (voteBtn) {
+            voteBtn.disabled = true;
+            voteBtn.innerText = "Голос засчитан";
+          }
+          checkVotingWindow();
+          updateMyVoteInfo();
         });
       });
     });
+  });
+};
+}
+const KILL_COOLDOWN = 60 * 1000; // 60 секунд
+const KILL_LIMIT = 2;
+
+let killCooldownInterval = null;
+
+// Вынесем флаг, чтобы пульсация не повторялась при каждом апдейте UI
+let pulseShown = false;
+
+// Функция подсветки карточки
+function pulseImposterIcon() {
+  const card = document.getElementById('playerCard');
+  if (!card) return;
+  card.classList.add('pulse-imp-icon');
+  setTimeout(() => card.classList.remove('pulse-imp-icon'), 3000);
+}
+
+// Основная логика панели импостера
+function setupImposterTools(playerRef) {
+  const killBtn = document.getElementById('killBtn');
+  const killCooldown = document.getElementById('killCooldown');
+  const killLeft = document.getElementById('killLeft');
+
+  async function readAndUpdateUI() {
+    const playerSnap = await playerRef.once("value");
+    const player = playerSnap.val();
+    const killsLeft = (typeof player.killsLeft === 'number') ? player.killsLeft : KILL_LIMIT;
+    const killAvailableAt = player.killAvailableAt || 0;
+    const now = Date.now();
+
+    // Кулдаун
+    if (killAvailableAt > now) {
+      const left = Math.ceil((killAvailableAt - now) / 1000);
+      killCooldown.innerText = `Осталось: ${left} сек.`;
+      killBtn.disabled = true;
+    } else {
+      killCooldown.innerText = '';
+      killBtn.disabled = (killsLeft <= 0);
+
+      // Пульсация карточки, когда кнопка впервые становится доступной
+      if (!pulseShown && killsLeft > 0) {
+        pulseImposterIcon();
+        pulseShown = true;
+      }
+    }
+
+    killLeft.innerText = `Осталось убийств: ${killsLeft}`;
+    if (killsLeft <= 0) killBtn.disabled = true;
+
+    // Красный цвет и эффект кулдауна на кнопке
+    killBtn.classList.toggle('kill-btn-on-cooldown', killBtn.disabled && (killAvailableAt > now));
+    killBtn.classList.add('kill-btn');
+  }
+
+  // Слушаем изменения в базе
+  playerRef.on("value", readAndUpdateUI);
+
+  // Таймер для обновления интерфейса
+  if (killCooldownInterval) clearInterval(killCooldownInterval);
+  killCooldownInterval = setInterval(readAndUpdateUI, 1000);
+
+  // Обработка клика по кнопке
+  killBtn.onclick = async () => {
+    const playerSnap = await playerRef.once("value");
+    const player = playerSnap.val();
+    let killsLeft = (typeof player.killsLeft === 'number') ? player.killsLeft : KILL_LIMIT;
+    let killAvailableAt = player.killAvailableAt || 0;
+    const now = Date.now();
+
+    if (killsLeft <= 0) return alert("У тебя закончились убийства!");
+    if (killAvailableAt > now) {
+      alert(`Подожди ${Math.ceil((killAvailableAt - now)/1000)} сек. до следующего убийства!`);
+      return;
+    }
+
+    const target = prompt("Кого убить? Введи номер игрока (1–60):");
+    if (!target || isNaN(target) || target < 1 || target > 60 || Number(target) === Number(playerNumber)) {
+      return alert("Некорректный номер.");
+    }
+
+    // Проверяем статус цели
+    const statusSnap = await db.ref("players/" + target + "/status").once("value");
+    if (statusSnap.val() !== "alive") {
+      alert("Этот игрок уже мёртв!");
+      return;
+    }
+
+    // Убиваем игрока
+    await db.ref("players/" + target).update({ status: "dead" });
+
+    // Сохраняем кулдаун и лимит
+    killsLeft -= 1;
+    killAvailableAt = Date.now() + KILL_COOLDOWN;
+    await playerRef.update({
+      killsLeft: killsLeft,
+      killAvailableAt: killAvailableAt
+    });
+
+    // Кнопка сразу блокируется
+    killBtn.disabled = true;
+    readAndUpdateUI();
+    alert(`Игрок №${target} был убит!`);
   };
 }
+
+// Функция для активации HUD импостера
+function enableImposterHUD(playerRole, playerStatus) {
+  const card = document.getElementById('playerCard');
+  if (!card) return;
+  card.onclick = null;
+
+  // Только если ты импостер и жив
+  if (playerRole === "imposter" && playerStatus === "alive") {
+    card.onclick = () => {
+      showScreen('imposterHUD');
+      const playerRef = db.ref("players/" + playerNumber);
+      setupImposterTools(playerRef);
+    };
+    card.style.cursor = "pointer";
+  } else {
+    card.onclick = null;
+    card.style.cursor = "default";
+  }
+}
+
+
 
 // === Глобальная переменная для таймера собрания
 window.meetingTimerInterval = null;
@@ -464,59 +608,67 @@ window.db.ref("meetings").on("value", snap => {
   const kickCount = document.getElementById("meetingKickCount");
   const skipCount = document.getElementById("meetingSkipCount");
 
-  if (!hudScreen || !meetingSection || !meetingTarget) return;
+if (!hudScreen || !meetingSection || !meetingTarget) return;
 
-  if (m && m.active) {
-    hudScreen.style.display = "none";
-    meetingSection.style.display = "block";
-    meetingTarget.innerText = `Цель: Игрок №${m.target}`;
-    if (m && m.active && m.timerSet === false) {
-  if (meetingSound) meetingSound.play();
-}
-   if (meetingTimer && m.startedAt) {
-  if (window.meetingTimerInterval) clearInterval(window.meetingTimerInterval);
+if (m && m.active) {
+  hudScreen.style.display = "none";
+  meetingSection.style.display = "block";
 
-  const MEETING_DURATION = 30000; // в миллисекундах (30 сек)
-
-  function updateMeetingTimerDisplay() {
-    const now = Date.now();
-    const elapsed = now - m.startedAt;
-    const remaining = Math.max(0, MEETING_DURATION - elapsed);
-    const seconds = (remaining / 1000).toFixed(3); // округление до 1 знака после запятой
-    meetingTimer.innerText = seconds;
-
-    if (remaining <= 0 && window.meetingTimerInterval) {
-      clearInterval(window.meetingTimerInterval);
-      countVotes(m); // Завершаем голосование
-    }
+  // 👇 СКРЫВАЕМ HUD импостера, если открыт
+  const imposterHUD = document.getElementById("imposterHUD");
+  if (imposterHUD) {
+    imposterHUD.style.display = "none";
+    imposterHUD.classList.remove("active");
   }
 
-  updateMeetingTimerDisplay(); // запустить сразу
-  window.meetingTimerInterval = setInterval(updateMeetingTimerDisplay, 100); // обновляем 10 раз/сек
-}
-    window.db.ref("meetings/votes").on("value", (snapshot) => {
-      const votes = snapshot.val() || {};
-      let kick = 0, skip = 0;
-      Object.values(votes).forEach(v => {
-        if (v === "kick") kick++;
-        else if (v === "skip") skip++;
-      });
-      if (kickCount) kickCount.innerText = `Кик: ${kick}`;
-      if (skipCount) skipCount.innerText = `Оставить: ${skip}`;
-    });
-
-  } else {
-    meetingSection.style.display = "none";
+  meetingTarget.innerText = `Цель: Игрок №${m.target}`;
+  if (m && m.active && m.timerSet === false) {
+    if (meetingSound) meetingSound.play();
+  }
+  if (meetingTimer && m.startedAt) {
     if (window.meetingTimerInterval) clearInterval(window.meetingTimerInterval);
-    localStorage.removeItem("voted");
-    db.ref("players/" + playerNumber).once("value").then(snap => {
-      if (snap.val()?.status !== "alive") {
-        hudScreen.style.display = "none";
-      } else {
-        hudScreen.style.display = "block"; // 👈 возвращаем HUD если игрок жив!
+
+    const MEETING_DURATION = 30000; // в миллисекундах (30 сек)
+
+    function updateMeetingTimerDisplay() {
+      const now = Date.now();
+      const elapsed = now - m.startedAt;
+      const remaining = Math.max(0, MEETING_DURATION - elapsed);
+      const seconds = (remaining / 1000).toFixed(3); // округление до 1 знака после запятой
+      meetingTimer.innerText = seconds;
+
+      if (remaining <= 0 && window.meetingTimerInterval) {
+        clearInterval(window.meetingTimerInterval);
+        countVotes(m); // Завершаем голосование
       }
-    });
+    }
+
+    updateMeetingTimerDisplay(); // запустить сразу
+    window.meetingTimerInterval = setInterval(updateMeetingTimerDisplay, 100); // обновляем 10 раз/сек
   }
+  window.db.ref("meetings/votes").on("value", (snapshot) => {
+    const votes = snapshot.val() || {};
+    let kick = 0, skip = 0;
+    Object.values(votes).forEach(v => {
+      if (v === "kick") kick++;
+      else if (v === "skip") skip++;
+    });
+    if (kickCount) kickCount.innerText = `Кик: ${kick}`;
+    if (skipCount) skipCount.innerText = `Оставить: ${skip}`;
+  });
+
+} else {
+  meetingSection.style.display = "none";
+  if (window.meetingTimerInterval) clearInterval(window.meetingTimerInterval);
+  localStorage.removeItem("voted");
+  db.ref("players/" + playerNumber).once("value").then(snap => {
+    if (snap.val()?.status !== "alive") {
+      hudScreen.style.display = "none";
+    } else {
+      hudScreen.style.display = "block"; // 👈 возвращаем HUD если игрок жив!
+    }
+  });
+}
 });
 
 
