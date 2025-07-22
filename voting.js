@@ -29,23 +29,25 @@ function updateVotesList() {
   }
 
   Object.entries(votes).forEach(([target, voters]) => {
-    const aliveVoters = Object.entries(voters || {})
+    const aliveVoters = Object.entries(voters || {})  
       .map(([voter]) => voter)
       .filter((voter) => players[voter] && players[voter].status === "alive");
 
     const li = document.createElement("li");
     li.textContent = `Игрок №${target} — голосуют: ${aliveVoters.length > 0 ? aliveVoters.join(", ") : "никто"}`;
     votesList.appendChild(li);
-
-    if (aliveVoters.length >= 10) {
-      window.db.ref(`suspicion/${target}`).remove();
-      window.db.ref("meetings").set({
-        active: true,
-        target: Number(target),
-        votes: {},
-        timerSet: false,
-        startedAt: Date.now()
-      });
-    }
+window.db.ref("game/voteThreshold").once("value").then(thresholdSnap => {
+  const threshold = thresholdSnap.val() || 10;
+  if (aliveVoters.length >= threshold) {
+    window.db.ref(`suspicion/${target}`).remove();
+    window.db.ref("meetings").set({
+      active: true,
+      target: Number(target),
+      votes: {},
+      timerSet: false,
+      startedAt: Date.now()
+    });
+  }
+});
   });
 }
