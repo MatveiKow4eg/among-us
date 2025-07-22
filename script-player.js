@@ -118,8 +118,8 @@ document.addEventListener("DOMContentLoaded", () => {
     registerBtn.onclick = async () => {
       const input = document.getElementById("playerInput");
      const num = parseInt(input.value.trim());
-if (isNaN(num) || num < 1 || num > 60) {
-  alert("Введите номер от 1 до 60");
+if (isNaN(num) || num < 1 || num > 90) {
+  alert("Введите номер от 1 до 90");
   return;
 }
       // Проверка уникальности номера в базе:
@@ -412,13 +412,13 @@ playerRef.on("value", snap => {
     player.role === "imposter" &&
     lastRole !== "imposter" &&                    // только если роль стала импостером СЕЙЧАС
     typeof player.killAvailableAt === "undefined" // и killAvailableAt еще не задан
-  ) {
-    db.ref("game/startedAt").once("value", snap2 => {
-      const startedAt = snap2.val() || Date.now();
-      const firstKillAvailableAt = startedAt + 60 * 1000; // через минуту после старта
-      playerRef.update({ killAvailableAt: firstKillAvailableAt, killsLeft: KILL_LIMIT });
-    });
-  }
+) {
+  db.ref("game/startedAt").once("value", snap2 => {
+    const startedAt = snap2.val() || Date.now();
+    const firstKillAvailableAt = startedAt + 15 * 60 * 1000; // через 15 минут после старта
+    playerRef.update({ killAvailableAt: firstKillAvailableAt, killsLeft: KILL_LIMIT });
+  });
+}
 
   lastRole = player.role; 
 
@@ -429,10 +429,10 @@ playerRef.on("value", snap => {
 
 if (voteBtn) voteBtn.onclick = () => {
   if (!canVote) return;
-  const target = prompt("На кого ты подозреваешь (1–60)?");
-  if (!target || isNaN(target) || target < 1 || target > 60 || Number(target) === Number(playerNumber)) {
-    return alert("Некорректный выбор");
-  }
+const target = prompt("На кого ты подозреваешь (1–90)?");
+if (!target || isNaN(target) || target < 1 || target > 90 || Number(target) === Number(playerNumber)) {
+  return alert("Некорректный выбор");
+}
   db.ref("game/startedAt").once("value", snap => {
     const startedAt = snap.val() || 0;
     const now = Date.now();
@@ -452,35 +452,40 @@ if (voteBtn) voteBtn.onclick = () => {
           alert("Игрок уже мёртв. Голосовать за него нельзя.");
           return;
         }
-        const cooldown = 60 * 1000; // 1 минута
-        const expireAt = Date.now() + cooldown;
-        db.ref("suspicion").once("value", snap3 => {
-          const suspicion = snap3.val() || {};
-          const updates = {};
-          Object.entries(suspicion).forEach(([someTarget, voters]) => {
-            if (voters && voters[playerNumber]) {
-              updates[`suspicion/${someTarget}/${playerNumber}`] = null;
-            }
-          });
-          updates[`suspicion/${target}/${playerNumber}`] = expireAt;
-          updates[`players/${playerNumber}/voteCooldownUntil`] = expireAt;
-          db.ref().update(updates);
-          canVote = false;
-          if (voteBtn) {
-            voteBtn.disabled = true;
-            voteBtn.innerText = "Голос засчитан";
-          }
-          checkVotingWindow();
-          updateMyVoteInfo();
-        });
+const cooldown = 10 * 60 * 1000; // 10 минут
+const expireAt = Date.now() + cooldown;
+
+db.ref("suspicion").once("value", snap3 => {
+  const suspicion = snap3.val() || {};
+  const updates = {};
+
+  Object.entries(suspicion).forEach(([someTarget, voters]) => {
+    if (voters && voters[playerNumber]) {
+      updates[`suspicion/${someTarget}/${playerNumber}`] = null;
+    }
+  });
+
+  updates[`suspicion/${target}/${playerNumber}`] = expireAt;
+  updates[`players/${playerNumber}/voteCooldownUntil`] = expireAt;
+
+  db.ref().update(updates);
+
+  canVote = false;
+  if (voteBtn) {
+    voteBtn.disabled = true;
+    voteBtn.innerText = "Голос засчитан";
+  }
+
+  checkVotingWindow();
+  updateMyVoteInfo();
+});
       });
     });
   });
 };
 }
-const KILL_COOLDOWN = 60 * 1000; // 60 секунд
+const KILL_COOLDOWN = 15 * 60 * 1000; // 15 минут
 const KILL_LIMIT = 2;
-
 let killCooldownInterval = null;
 
 // Вынесем флаг, чтобы пульсация не повторялась при каждом апдейте UI
@@ -552,10 +557,10 @@ function setupImposterTools(playerRef) {
       return;
     }
 
-    const target = prompt("Кого убить? Введи номер игрока (1–60):");
-    if (!target || isNaN(target) || target < 1 || target > 60 || Number(target) === Number(playerNumber)) {
-      return alert("Некорректный номер.");
-    }
+  const target = prompt("Кого убить? Введи номер игрока (1–90):");
+if (!target || isNaN(target) || target < 1 || target > 90 || Number(target) === Number(playerNumber)) {
+  return alert("Некорректный номер.");
+}
 
     // Проверяем статус цели
     const statusSnap = await db.ref("players/" + target + "/status").once("value");
@@ -735,10 +740,21 @@ function countVotes(meeting) {
       }, 5000);
     });
   }
-  
+
+
+  // Кулдаун на голосование после любого митинга
+  const VOTE_COOLDOWN = 10 * 60 * 1000; // 10 минут
+  db.ref("players").once("value").then(snap => {
+    const players = snap.val() || {};
+    const updates = {};
+    Object.entries(players).forEach(([id, player]) => {
+      if (player.status === "alive") {
+        updates[`players/${id}/voteCooldownUntil`] = Date.now() + VOTE_COOLDOWN;
+      }
+    });
+    return db.ref().update(updates);
+  });
 }
-
-
 
 
 
@@ -932,24 +948,26 @@ function checkVotingWindow() {
       return;
     }
 
-    if (now < startedAt + 60 * 1000) {
-      if (voteBtn) {
-        voteBtn.disabled = true;
-        const left = (startedAt + 60 * 1000) - now;
-        voteBtn.innerText = `Голосовать можно через ${formatTime(left)}`;
-      }
-      if (cooldownTimer) cooldownTimer.innerText = "";
-      window.voteCooldownTimer = setInterval(() => {
-        const t = (startedAt + 60 * 1000) - Date.now();
-        if (t <= 0) {
-          clearInterval(window.voteCooldownTimer);
-          checkVotingWindow();
-        } else if (voteBtn) {
-          voteBtn.innerText = `Голосовать можно через ${formatTime(t)}`;
-        }
-      }, 1000);
-      return;
+if (now < startedAt + 60 * 1000) {
+  if (voteBtn) {
+    voteBtn.disabled = true;
+    const left = (startedAt + 60 * 1000) - now;
+    voteBtn.innerText = `Голосовать можно через ${formatTime(left)}`;
+  }
+  if (cooldownTimer) cooldownTimer.innerText = "";
+  window.voteCooldownTimer = setInterval(() => {
+    const t = (startedAt + 60 * 1000) - Date.now();
+    if (t <= 0) {
+      clearInterval(window.voteCooldownTimer);
+      checkVotingWindow();
+    } else if (voteBtn) {
+      voteBtn.innerText = `Голосовать можно через ${formatTime(t)}`;
     }
+  }, 1000);
+  return;
+}
+
+
 
     db.ref("players/" + playerNumber + "/voteCooldownUntil").once("value", snap2 => {
       const cooldownUntil = snap2.val() || 0;
