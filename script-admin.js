@@ -10,6 +10,36 @@ document.addEventListener("DOMContentLoaded", () => {
   const imposterInput = document.getElementById("imposterCountInput");
   const imposterStatusText = document.getElementById("imposterStatusText");
   const imposterControlBlock = document.getElementById("imposterControlBlock");
+  const voteThresholdInput = document.getElementById("voteThresholdInput");
+const voteThresholdStatus = document.getElementById("voteThresholdStatus");
+const setVoteThresholdBtn = document.getElementById("setVoteThresholdBtn");
+
+
+
+
+setVoteThresholdBtn?.addEventListener("click", () => {
+  const value = parseInt(voteThresholdInput?.value, 10);
+if (isNaN(value) || value < 1 || value > 90) {
+  alert("Введите число от 1 до 90");
+  return;
+}
+  db.ref("game/voteThreshold").set(value)
+    .then(() => {
+      voteThresholdStatus.textContent = `Порог установлен: ${value}`;
+      voteThresholdStatus.style.color = "green";
+    })
+    .catch((err) => {
+      voteThresholdStatus.textContent = "Ошибка при обновлении порога";
+      voteThresholdStatus.style.color = "red";
+      console.error("Ошибка:", err);
+    });
+});
+
+db.ref("game/voteThreshold").once("value").then((snap) => {
+  const val = snap.val();
+  if (val && voteThresholdInput) voteThresholdInput.value = val;
+});
+
 
 // Следим за состоянием игры и переключаем отображение
 db.ref("game/state").on("value", (snap) => {
