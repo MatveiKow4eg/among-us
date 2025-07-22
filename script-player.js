@@ -436,10 +436,10 @@ if (!target || isNaN(target) || target < 1 || target > 90 || Number(target) === 
   db.ref("game/startedAt").once("value", snap => {
     const startedAt = snap.val() || 0;
     const now = Date.now();
-    if (!startedAt || now < startedAt + 60 * 1000) {
-      alert("Голосовать можно только через минуту после старта игры!");
-      return;
-    }
+  if (!startedAt || now < startedAt + 10 * 60 * 1000) {
+    alert("Голосовать можно только через 10 минут после старта игры!");
+    return;
+  }
     db.ref("players/" + playerNumber + "/voteCooldownUntil").once("value", snap2 => {
       const cooldownUntil = snap2.val() || 0;
       if (cooldownUntil && now < cooldownUntil) {
@@ -948,24 +948,24 @@ function checkVotingWindow() {
       return;
     }
 
-if (now < startedAt + 60 * 1000) {
-  if (voteBtn) {
-    voteBtn.disabled = true;
-    const left = (startedAt + 60 * 1000) - now;
-    voteBtn.innerText = `Голосовать можно через ${formatTime(left)}`;
-  }
-  if (cooldownTimer) cooldownTimer.innerText = "";
-  window.voteCooldownTimer = setInterval(() => {
-    const t = (startedAt + 60 * 1000) - Date.now();
-    if (t <= 0) {
-      clearInterval(window.voteCooldownTimer);
-      checkVotingWindow();
-    } else if (voteBtn) {
-      voteBtn.innerText = `Голосовать можно через ${formatTime(t)}`;
+ if (now < startedAt + 10 * 60 * 1000) {
+    if (voteBtn) {
+      voteBtn.disabled = true;
+      const left = (startedAt + 10 * 60 * 1000) - now;
+      voteBtn.innerText = `Голосовать можно через ${formatTime(left)}`;
     }
-  }, 1000);
-  return;
-}
+    if (cooldownTimer) cooldownTimer.innerText = "";
+    window.voteCooldownTimer = setInterval(() => {
+      const t = (startedAt + 10 * 60 * 1000) - Date.now();
+      if (t <= 0) {
+        clearInterval(window.voteCooldownTimer);
+        checkVotingWindow();
+      } else if (voteBtn) {
+        voteBtn.innerText = `Голосовать можно через ${formatTime(t)}`;
+      }
+    }, 1000);
+    return;
+  }
 
 
 
