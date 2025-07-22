@@ -127,21 +127,31 @@
 </head>
 <body>
 
-  <div class="sidebar">
-    <h2>Панель администратора</h2>
-    <div class="status-label">
-      <p>Состояние: <span id="gameStateLabel">...</span></p>
-      <p id="votingTimer">⏳</p>
-    </div>
-    <div id="imposterControlBlock">
-  <input type="number" id="imposterCountInput" placeholder="Кол-во импостеров" min="1" max="60" style="padding: 6px; margin-bottom: 10px; width: 100%;" />
-</div>
-<div id="imposterStatusText" style="color: #fff; font-weight: bold; margin-bottom: 10px; display: none;"></div>
-    <button id="assignRolesBtn">🎭 Назначить роли</button>
-    <button id="startGameBtn">🚀 Начать игру</button>
-    <button id="stopGameBtn">🛑 Остановить игру</button>
-    <button id="clearPlayersBtn">🧹 Очистить всех</button>
+<div class="sidebar">
+  <h2>Панель администратора</h2>
+  <div class="status-label">
+    <p>Состояние: <span id="gameStateLabel">...</span></p>
+    <p id="votingTimer">⏳</p>
   </div>
+
+  <div id="imposterControlBlock">
+    <input type="number" id="imposterCountInput" placeholder="Кол-во импостеров" min="1" max="90" style="padding: 6px; margin-bottom: 10px; width: 100%;" />
+  </div>
+  <div id="imposterStatusText" style="color: #fff; font-weight: bold; margin-bottom: 10px; display: none;"></div>
+
+  <button id="assignRolesBtn">🎭 Назначить роли</button>
+  <button id="startGameBtn">🚀 Начать игру</button>
+  <button id="stopGameBtn">🛑 Остановить игру</button>
+  <button id="clearPlayersBtn">🧹 Очистить всех</button>
+
+  <!-- 🔽 Новый блок настройки порога голосов -->
+  <hr style="margin: 20px 0; border: none; border-top: 1px solid #333;">
+  <h3 style="margin-bottom: 5px;">Порог голосов</h3>
+  <input type="number" id="voteThresholdInput" min="1" max="90" value="10" style="padding: 6px; margin-bottom: 10px; width: 100%;" />
+  <button id="setVoteThresholdBtn" style="background-color: #ff5722; color: white;">Установить</button>
+  <p id="voteThresholdStatus" style="font-size: 0.9em; color: #00ff88;"></p>
+</div>
+
 
   <div class="main">
     <div class="top-bar">
